@@ -67,28 +67,24 @@ def get_exif_seg(segments):
 
 
 def merge_segments(segments, exif=b""):
-    """Merges Exif with APP0 and APP1 manipulations.
+    """Replace Exif while preserving all unrelated JPEG segments.
+
+    An empty byte string leaves the data unchanged; None removes Exif.
     """
-    if segments[1][0:2] == b"\xff\xe0" and \
-       segments[2][0:2] == b"\xff\xe1" and \
-       segments[2][4:10] == b"Exif\x00\x00":
-        if exif:
-            segments[2] = exif
-            segments.pop(1)
-        elif exif is None:
-            segments.pop(2)
+    if exif == b"":
+        return b"".join(segments)
+
+    merged = []
+    found = False
+    for segment in segments:
+        if segment[:2] == b"\xff\xe1" and segment[4:10] == b"Exif\x00\x00":
+            if not found and exif is not None:
+                merged.append(exif)
+            found = True
         else:
-            segments.pop(1)
-    elif segments[1][0:2] == b"\xff\xe0":
-        if exif:
-            segments[1] = exif
-    elif segments[1][0:2] == b"\xff\xe1" and \
-         segments[1][4:10] == b"Exif\x00\x00":
-        if exif:
-            segments[1] = exif
-        elif exif is None:
-            segments.pop(1)
-    else:
-        if exif:
-            segments.insert(1, exif)
-    return b"".join(segments)
+            merged.append(segment)
+
+    if not found and exif:
+        position = 2 if merged[1][:2] == b"\xff\xe0" else 1
+        merged.insert(position, exif)
+    return b"".join(merged)

@@ -669,17 +669,15 @@ class UTests(unittest.TestCase):
             _common.split_into_segments(b"\xff\xd8\xff\xe1\xff\xff")
 
     def test_merge_segments(self):
-        # Remove APP0, when both APP0 and APP1 exists.
+        # Preserve APP0 and APP1 when no replacement is requested.
         with open(INPUT_FILE1, "rb") as f:
             original = f.read()
         segments = _common.split_into_segments(original)
         new_data = _common.merge_segments(segments)
         segments = _common.split_into_segments(new_data)
-        self.assertFalse(segments[1][0:2] == b"\xff\xe0"
-                        and segments[2][0:2] == b"\xff\xe1")
-        self.assertEqual(segments[1][0:2], b"\xff\xe1")
+        self.assertEqual(new_data, original)
         o = io.BytesIO(new_data)
-        without_app0 = o.getvalue()
+        without_app0 = b"".join(seg for seg in segments if seg[:2] != b"\xff\xe0")
         Image.open(o).close()
 
         exif = _common.get_exif_seg(segments)
@@ -703,9 +701,8 @@ class UTests(unittest.TestCase):
         segments = _common.split_into_segments(o.getvalue())
         new_data = _common.merge_segments(segments, exif)
         segments = _common.split_into_segments(new_data)
-        self.assertFalse(segments[1][0:2] == b"\xff\xe0"
-                         and segments[2][0:2] == b"\xff\xe1")
-        self.assertEqual(segments[1], exif)
+        self.assertEqual(segments[1][:2], b"\xff\xe0")
+        self.assertEqual(segments[2], exif)
         o = io.BytesIO(new_data)
         Image.open(o).close()
 
@@ -1049,6 +1046,8 @@ def suite():
         unittest.makeSuite(HelperTests),
         unittest.makeSuite(WebpTests),
     ])
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromNames(
+        ["test_common", "test_insert", "test_transplant"]))
     return suite
 
 
