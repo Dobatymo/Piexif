@@ -1,5 +1,12 @@
 # Fixed upstream and fork issues
 
+## `ExifIFD` string-name lookup
+
+- Upstream: [hMatoba/Piexif#139](https://github.com/hMatoba/Piexif/issues/139).
+- Status: not planned; the requested dictionary interface is unnecessary.
+- `ExifIFD` is a class containing numeric tag IDs. Dynamic lookup already works
+  with `getattr(piexif.ExifIFD, "DateTimeOriginal")`.
+
 ## JFIF metadata lost when inserting EXIF
 
 - Upstream: [hMatoba/Piexif#148](https://github.com/hMatoba/Piexif/issues/148).
