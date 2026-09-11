@@ -105,9 +105,19 @@ class _ExifReader(object):
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
         ifd_dict = {}
+        if pointer < 0 or pointer + 2 > len(self.tiftag):
+            raise InvalidImageDataError("Invalid IFD offset.")
         tag_count = struct.unpack(self.endian_mark + "H",
                                   self.tiftag[pointer: pointer+2])[0]
         offset = pointer + 2
+        # Only the entry table is required for nested IFDs. The trailing
+        # next-IFD pointer is meaningful for the 0th IFD and may be absent
+        # from compact nested IFD data.
+        required_end = offset + tag_count * 12
+        if ifd_name == "0th":
+            required_end += 4
+        if required_end > len(self.tiftag):
+            raise InvalidImageDataError("Invalid IFD size.")
         if ifd_name in ["0th", "1st"]:
             t = "Image"
         else:
@@ -142,6 +152,22 @@ class _ExifReader(object):
         t = val[0]
         length = val[1]
         value = val[2]
+
+        type_size = {
+            TYPES.Byte: 1, TYPES.Ascii: 1, TYPES.Short: 2,
+            TYPES.Long: 4, TYPES.Rational: 8, TYPES.SByte: 1,
+            TYPES.Undefined: 1, TYPES.SShort: 2, TYPES.SLong: 4,
+            TYPES.SRational: 8, TYPES.Float: 4, TYPES.DFloat: 8,
+        }.get(t)
+        if type_size is None:
+            raise InvalidImageDataError("Exif might be wrong. Got incorrect value type to decode.")
+        value_size = length * type_size
+        if value_size > 4:
+            pointer = struct.unpack(self.endian_mark + "L", value)[0]
+            if pointer > len(self.tiftag) or value_size > len(self.tiftag) - pointer:
+                raise InvalidImageDataError("Exif value exceeds the image data.")
+        elif value_size > 4 or length < 0:
+            raise InvalidImageDataError("Invalid Exif value size.")
 
         if t == TYPES.Byte: # BYTE
             if length > 4:

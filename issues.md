@@ -1,5 +1,19 @@
 # Fixed upstream and fork issues
 
+## Corrupt EXIF can trigger `MemoryError`
+
+- Upstream: [hMatoba/Piexif#55](https://github.com/hMatoba/Piexif/issues/55).
+- Reproduction image: https://user-images.githubusercontent.com/1758850/37331204-450a05bc-26de-11e8-90c7-1c0fda00e01c.jpg
+- Status: fixed in this fork as parser hardening.
+- Malformed EXIF lengths and offsets are now bounds-checked and rejected with
+  `InvalidImageDataError`; the parser does not attempt to recover the data.
+- Validation with the image attached to the upstream issue: the original
+  parser did not finish before being interrupted, while this fork rejected it
+  immediately with `InvalidImageDataError`. The image is kept outside the
+  repository as a temporary test input.
+- The original unknown-tag regression test also used a truncated IFD entry;
+  the fixture was corrected to include the required 12-byte entry data.
+
 ## `FocalLength` cannot be set
 
 - Upstream: [hMatoba/Piexif#60](https://github.com/hMatoba/Piexif/issues/60).
