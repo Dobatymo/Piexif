@@ -183,6 +183,25 @@ def _pack_double(*args):
     return struct.pack(">" + "d" * len(args), *args)
 
 
+def _rational_values(raw_value, signed):
+    if not isinstance(raw_value, (tuple, list)):
+        raise ValueError("Got invalid type to convert.")
+    if len(raw_value) == 2 and all(isinstance(v, numbers.Integral)
+                                   for v in raw_value):
+        values = [raw_value]
+    elif raw_value and all(isinstance(v, (tuple, list)) and len(v) == 2 and
+                           all(isinstance(n, numbers.Integral) for n in v)
+                           for v in raw_value):
+        values = raw_value
+    else:
+        raise ValueError("Got invalid type to convert.")
+    minimum = -2 ** 31 if signed else 0
+    maximum = 2 ** 31 - 1 if signed else 2 ** 32 - 1
+    if any(not minimum <= n <= maximum for pair in values for n in pair):
+        raise ValueError("Got invalid type to convert.")
+    return values
+
+
 def _value_to_bytes(raw_value, value_type, offset):
     four_bytes_over = b""
     value_str = b""
@@ -232,31 +251,17 @@ def _value_to_bytes(raw_value, value_type, offset):
         else:
             value_str = new_value + b"\x00" * (4 - length)
     elif value_type == TYPES.Rational:
-        if isinstance(raw_value[0], numbers.Integral):
-            length = 1
-            num, den = raw_value
-            new_value = struct.pack(">L", num) + struct.pack(">L", den)
-        elif isinstance(raw_value[0], tuple):
-            length = len(raw_value)
-            new_value = b""
-            for n, val in enumerate(raw_value):
-                num, den = val
-                new_value += (struct.pack(">L", num) +
-                                struct.pack(">L", den))
+        values = _rational_values(raw_value, signed=False)
+        length = len(values)
+        new_value = b"".join(struct.pack(">L", num) + struct.pack(">L", den)
+                              for num, den in values)
         value_str = struct.pack(">I", offset)
         four_bytes_over = new_value
     elif value_type == TYPES.SRational:
-        if isinstance(raw_value[0], numbers.Integral):
-            length = 1
-            num, den = raw_value
-            new_value = struct.pack(">l", num) + struct.pack(">l", den)
-        elif isinstance(raw_value[0], tuple):
-            length = len(raw_value)
-            new_value = b""
-            for n, val in enumerate(raw_value):
-                num, den = val
-                new_value += (struct.pack(">l", num) +
-                                struct.pack(">l", den))
+        values = _rational_values(raw_value, signed=True)
+        length = len(values)
+        new_value = b"".join(struct.pack(">l", num) + struct.pack(">l", den)
+                              for num, den in values)
         value_str = struct.pack(">I", offset)
         four_bytes_over = new_value
     elif value_type == TYPES.Undefined:

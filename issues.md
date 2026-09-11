@@ -8,6 +8,13 @@
   denominator tuple, such as `(8, 1)`. In Python 3, `8 / 1` produces the
   invalid float value `8.0`.
 
+## Invalid GPS value raises `UnboundLocalError`
+
+- Upstream: [hMatoba/Piexif#67](https://github.com/hMatoba/Piexif/issues/67).
+- Status: hardened in this fork.
+- Invalid rational values now raise `ValueError` instead of an internal
+  `UnboundLocalError`; incorrect GPS types are not converted or supported.
+
 ## `ExifIFD` string-name lookup
 
 - Upstream: [hMatoba/Piexif#139](https://github.com/hMatoba/Piexif/issues/139).
