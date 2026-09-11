@@ -4,6 +4,7 @@ import struct
 
 from ._common import *
 from ._exif import *
+from ._exceptions import InvalidImageDataError
 
 
 TIFF_HEADER_LENGTH = 8
@@ -343,9 +344,9 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
             length_str, value_str, four_bytes_over = _value_to_bytes(raw_value,
                                                                      value_type,
                                                                      offset)
-        except ValueError:
-            raise ValueError(
-                '"dump" got wrong type of exif value.\n' +
+        except (ValueError, struct.error):
+            raise InvalidImageDataError(
+                '"dump" got invalid exif value (wrong type or out of range).\n' +
                 '{} in {} IFD. Got as {}.'.format(key, ifd, type(ifd_dict[key]))
             )
 

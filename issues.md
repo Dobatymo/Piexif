@@ -61,6 +61,15 @@
 - `ExifIFD` is a class containing numeric tag IDs. Dynamic lookup already works
   with `getattr(piexif.ExifIFD, "DateTimeOriginal")`.
 
+## Out-of-range brightness value raises `struct.error`
+
+- Upstream: [hMatoba/Piexif#147](https://github.com/hMatoba/Piexif/issues/147).
+- Status: hardened in this fork.
+- `BrightnessValue` (37379) requires a signed rational. The reported unsigned
+  numerator exceeds its permitted range; the source image was not provided.
+- Invalid tag values rejected by validation or numeric packing now raise
+  `InvalidImageDataError` with the tag and IFD, without converting invalid data.
+
 ## JFIF metadata lost when inserting EXIF
 
 - Upstream: [hMatoba/Piexif#148](https://github.com/hMatoba/Piexif/issues/148).
