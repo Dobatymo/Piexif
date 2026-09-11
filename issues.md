@@ -38,6 +38,14 @@
 - The example also modifies `1st`, which describes the thumbnail and is omitted
   when no thumbnail is supplied. Use `0th` for primary-image Make and Software.
 
+## `AsShotNeutral` rational values cannot be dumped
+
+- Upstream: [hMatoba/Piexif#86](https://github.com/hMatoba/Piexif/issues/86).
+- Status: fixed in this fork.
+- Piexif's tag table represented `AsShotNeutral` as `SHORT`,
+  while the DNG specification permits both `SHORT` and `RATIONAL` values.
+  Rational DNG values now round-trip correctly.
+
 ## Negative `TimeZoneOffset` cannot be dumped
 
 - Upstream: [hMatoba/Piexif#135](https://github.com/hMatoba/Piexif/issues/135).

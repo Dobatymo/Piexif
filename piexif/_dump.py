@@ -329,6 +329,9 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
         raw_value = ifd_dict[key]
         key_str = struct.pack(">H", key)
         value_type = TAGS[ifd][key]["type"]
+        if key == ImageIFD.AsShotNeutral and isinstance(raw_value, (tuple, list)) \
+                and raw_value and isinstance(raw_value[0], (tuple, list)):
+            value_type = TYPES.Rational
         type_str = struct.pack(">H", value_type)
         four_bytes_over = b""
 
