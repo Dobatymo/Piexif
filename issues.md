@@ -29,6 +29,14 @@
 - Invalid rational values now raise `ValueError` instead of an internal
   `UnboundLocalError`; incorrect GPS types are not converted or supported.
 
+## Negative `TimeZoneOffset` cannot be dumped
+
+- Upstream: [hMatoba/Piexif#135](https://github.com/hMatoba/Piexif/issues/135).
+- Status: fixed in this fork.
+- `TimeZoneOffset` is a signed-short EXIF value. It was incorrectly declared
+  as an unsigned long, so valid negative offsets raised `struct.error`.
+- The tag is now declared as `TYPES.SShort`.
+
 ## `ExifIFD` string-name lookup
 
 - Upstream: [hMatoba/Piexif#139](https://github.com/hMatoba/Piexif/issues/139).
