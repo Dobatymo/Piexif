@@ -29,6 +29,15 @@
 - Invalid rational values now raise `ValueError` instead of an internal
   `UnboundLocalError`; incorrect GPS types are not converted or supported.
 
+## Changes to thumbnail metadata are omitted without a thumbnail
+
+- Upstream: [hMatoba/Piexif#80](https://github.com/hMatoba/Piexif/issues/80).
+- Status: not planned; user error.
+- EXIF dictionaries must use integer tag IDs such as `piexif.ImageIFD.Make`,
+  not strings such as `"piexif.ImageIFD.Make"`.
+- The example also modifies `1st`, which describes the thumbnail and is omitted
+  when no thumbnail is supplied. Use `0th` for primary-image Make and Software.
+
 ## Negative `TimeZoneOffset` cannot be dumped
 
 - Upstream: [hMatoba/Piexif#135](https://github.com/hMatoba/Piexif/issues/135).
