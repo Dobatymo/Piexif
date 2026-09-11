@@ -3,6 +3,7 @@
 import copy
 import glob
 import io
+import math
 import os
 import struct
 import sys
@@ -78,7 +79,22 @@ INTEROP_IFD = {piexif.InteropIFD.InteroperabilityIndex: b"R98"}
 
 def load_exif_by_PIL(f):
     i = Image.open(f)
-    e = i._getexif()
+    if hasattr(i, "getexif"):
+        exif = i.getexif()
+        e = dict(exif)
+        if hasattr(exif, "get_ifd"):
+            for pointer_tag in (ImageIFD.ExifTag, ImageIFD.GPSTag,
+                                ExifIFD.InteroperabilityTag):
+                if pointer_tag in e:
+                    values = dict(exif.get_ifd(pointer_tag))
+                    if pointer_tag == ImageIFD.ExifTag:
+                        e.update(values)
+                    else:
+                        e[pointer_tag] = values
+        else:
+            e = i._getexif()
+    else:
+        e = i._getexif()
     i.close()
     return e
 
@@ -100,6 +116,14 @@ class ExifTests(unittest.TestCase):
                      "1st":{},
                      "thumbnail":None}
         self.assertEqual(exif_dict, none_dict)
+
+    def test_pillow_comparison_checks_exif_values(self):
+        expected = piexif.load(INPUT_FILE1)
+        actual = load_exif_by_PIL(INPUT_FILE1)
+        self.assertIn(ExifIFD.ExposureTime, actual)
+        expected["Exif"][ExifIFD.ExposureTime] = (999, 1)
+        with self.assertRaises(AssertionError):
+            self._compare_piexifDict_PILDict(expected, actual, p=False)
 
     def test_load(self):
         files = glob.glob(os.path.join("tests", "images", "r_*.jpg"))
@@ -579,19 +603,41 @@ class ExifTests(unittest.TestCase):
 
 # test utility methods----------------------------------------------
 
-    def _compare_value(self, v1, v2):
+    def _compare_value(self, v1, v2, ifd=None, key=None):
+        try:
+            value_type = TAGS[ifd][key]["type"] if ifd else None
+        except (KeyError, TypeError):
+            value_type = None
+        if value_type in (piexif.TYPES.Rational, piexif.TYPES.SRational):
+            if isinstance(v1, tuple) and v1 and isinstance(v1[0], tuple):
+                if isinstance(v2, (tuple, list)):
+                    self.assertEqual(len(v1), len(v2))
+                    for pair, value in zip(v1, v2):
+                        self._compare_value(pair, value, ifd, key)
+                    return
+            if isinstance(v1, tuple) and len(v1) == 2:
+                try:
+                    if v1[1] == 0:
+                        if getattr(v2, "denominator", None) == 0:
+                            self.assertEqual(v1, (v2.numerator, v2.denominator))
+                        else:
+                            self.assertTrue(math.isnan(float(v2)))
+                    else:
+                        self.assertEqual(float(v1[0]) / v1[1], float(v2))
+                    return
+                except (TypeError, ValueError, ZeroDivisionError):
+                    pass
         if type(v1) != type(v2):
-            if isinstance(v1, tuple):
+            if isinstance(v1, bytes) and isinstance(v2, str):
+                self.assertEqual(v1.decode("latin1"), v2)
+            elif isinstance(v1, bytes) and isinstance(v2, float):
+                self.assertEqual(float(bytearray(v1)[0]), v2)
+            elif isinstance(v1, tuple):
                 self.assertEqual(pack_byte(*v1), v2)
             elif isinstance(v1, int):
                 self.assertEqual(struct.pack("B", v1), v2)
             elif isinstance(v2, int):
                 self.assertEqual(struct.pack("B", v2), v1)
-            elif isinstance(v1, bytes) and isinstance(v2, str):
-                try:
-                    self.assertEqual(v1, v2.encode("latin1"))
-                except:
-                    self.assertEqual(v1, v2)
             else:
                 try:
                     self.assertEqual(v1, v2.encode("latin1"))
@@ -606,12 +652,11 @@ class ExifTests(unittest.TestCase):
         gps_ifd = piexifDict["GPS"]
         if 41728 in exif_ifd:
             exif_ifd.pop(41728) # value type is UNDEFINED but PIL returns int
-        if 34853 in pilDict:
-            gps = pilDict.pop(34853)
+        gps = pilDict.pop(ImageIFD.GPSTag, {})
 
         for key in sorted(zeroth_ifd):
-            if key in pilDict:
-                self._compare_value(zeroth_ifd[key], pilDict[key])
+            if key in pilDict and key not in (ImageIFD.ExifTag, ImageIFD.GPSTag):
+                self._compare_value(zeroth_ifd[key], pilDict[key], "0th", key)
                 if p:
                     try:
                         print(TAGS["0th"][key]["name"],
@@ -620,8 +665,8 @@ class ExifTests(unittest.TestCase):
                          print(TAGS["0th"][key]["name"],
                                zeroth_ifd[key], pilDict[key])
         for key in sorted(exif_ifd):
-            if key in pilDict:
-                self._compare_value(exif_ifd[key], pilDict[key])
+            if key in pilDict and key != ExifIFD.InteroperabilityTag:
+                self._compare_value(exif_ifd[key], pilDict[key], "Exif", key)
                 if p:
                     try:
                         print(TAGS["Exif"][key]["name"],
@@ -631,7 +676,7 @@ class ExifTests(unittest.TestCase):
                                exif_ifd[key], pilDict[key])
         for key in sorted(gps_ifd):
             if key in gps:
-                self._compare_value(gps_ifd[key], gps[key])
+                self._compare_value(gps_ifd[key], gps[key], "GPS", key)
                 if p:
                     try:
                         print(TAGS["GPS"][key]["name"],
