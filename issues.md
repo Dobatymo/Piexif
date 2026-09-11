@@ -1,5 +1,13 @@
 # Fixed upstream and fork issues
 
+## `FocalLength` cannot be set
+
+- Upstream: [hMatoba/Piexif#60](https://github.com/hMatoba/Piexif/issues/60).
+- Status: not planned; user error.
+- `FocalLength` is an EXIF `RATIONAL` and must be supplied as a numerator and
+  denominator tuple, such as `(8, 1)`. In Python 3, `8 / 1` produces the
+  invalid float value `8.0`.
+
 ## `ExifIFD` string-name lookup
 
 - Upstream: [hMatoba/Piexif#139](https://github.com/hMatoba/Piexif/issues/139).
