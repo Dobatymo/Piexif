@@ -1093,7 +1093,7 @@ def suite():
         unittest.makeSuite(WebpTests),
     ])
     suite.addTests(unittest.defaultTestLoader.loadTestsFromNames(
-        ["test_common", "test_dump", "test_exif", "test_insert", "test_load", "test_transplant"]
+        ["test_common", "test_dump", "test_exif", "test_insert", "test_load", "test_transplant", "test_webp"]
     ))
     return suite
 

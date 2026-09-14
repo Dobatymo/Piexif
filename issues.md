@@ -61,6 +61,31 @@
 - `ExifIFD` is a class containing numeric tag IDs. Dynamic lookup already works
   with `getattr(piexif.ExifIFD, "DateTimeOriginal")`.
 
+## Animated WebP loses its alpha flag
+
+- Upstream: [hMatoba/Piexif#144](https://github.com/hMatoba/Piexif/issues/144).
+- Status: fixed in this fork.
+- EXIF insertion and removal preserve the existing `VP8X` alpha flag. Frame
+  data remains unchanged, including nested `ALPH` chunks and lossless alpha.
+- The issue describes the flag as the animation flag in places; the affected
+  flag is the alpha flag.
+- `pil_animated3.webp` covers lossy frames with nested `ALPH` chunks. It and
+  `pil_animated2.webp` were contributed as test fixtures in the MIT-licensed
+  [source commit](https://github.com/skidder/Piexif/commit/5a12974343580d5f6fbbed74966bc56f2859ffe9);
+  the license is retained in `LICENSE.txt`.
+
+## Animated WebP canvas dimensions shrink to the last frame
+
+- Upstream: [hMatoba/Piexif#145](https://github.com/hMatoba/Piexif/issues/145).
+- Status: fixed in this fork.
+- EXIF insertion and removal preserve the existing `VP8X` canvas dimensions
+  instead of replacing them with the last `ANMF` frame dimensions. This also
+  preserves canvases with background beyond the frames' bounds.
+- `pil_animated2.webp` also covers varying frame sizes and offsets.
+- Reproduction image: [test.webp.zip](https://github.com/user-attachments/files/16908953/test.webp.zip),
+  included as `animated_canvas.webp`. Its author, nico, explicitly placed it
+  in the public domain in the [issue comment](https://github.com/hMatoba/Piexif/issues/145#issuecomment-2334111999).
+
 ## Out-of-range brightness value raises `struct.error`
 
 - Upstream: [hMatoba/Piexif#147](https://github.com/hMatoba/Piexif/issues/147).

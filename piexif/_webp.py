@@ -101,7 +101,11 @@ def set_vp8x(chunks):
 
     for chunk in chunks:
         if chunk["fourcc"] == b"VP8X":
+            # Animation frames may cover only part of this canvas.
             width, height = _get_size_from_vp8x(chunk)
+            # EXIF edits leave the image data and its transparency unchanged.
+            if ord(chunk["data"][:1]) & 0x10:
+                flags[3] = b"1"
         elif chunk["fourcc"] == b"VP8 ":
             width, height = _get_size_from_vp8(chunk)
         elif chunk["fourcc"] == b"VP8L":
@@ -109,8 +113,6 @@ def set_vp8x(chunks):
             if is_rgba:
                 flags[3] = b"1"
             width, height = _get_size_from_vp8L(chunk)
-        elif chunk["fourcc"] == b"ANMF":
-            width, height = _get_size_from_anmf(chunk)
         elif chunk["fourcc"] == b"ICCP":
             flags[2] = b"1"
         elif chunk["fourcc"] == b"ALPH":
