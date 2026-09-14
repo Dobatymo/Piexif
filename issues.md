@@ -82,6 +82,15 @@
   returns `None` for these files, and `load()` returns empty metadata for
   both byte and filename inputs, consistently with JPEG without EXIF.
 
+## Interop without Exif raises KeyError during dump
+
+- Upstream: [hMatoba/Piexif#114](https://github.com/hMatoba/Piexif/issues/114).
+- Status: fixed in this fork.
+- A nonempty `Interop` dictionary with no `Exif` key raised `KeyError`.
+  `dump()` now creates the required parent Exif IFD, producing the same output
+  as explicitly supplying `Exif: {}`. Other supplied metadata is preserved
+  and the caller's dictionary is not modified.
+
 ## Out-of-range GPS byte raises struct.error
 
 - Upstream: [hMatoba/Piexif#130](https://github.com/hMatoba/Piexif/issues/130).

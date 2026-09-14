@@ -36,7 +36,7 @@ def dump(exif_dict_original):
           ("Interop" in exif_dict) and len(exif_dict["Interop"]) ):
         zeroth_ifd[ImageIFD.ExifTag] = 1
         exif_is = True
-        exif_ifd = exif_dict["Exif"]
+        exif_ifd = exif_dict.get("Exif", {})
         if ("Interop" in exif_dict) and len(exif_dict["Interop"]):
             exif_ifd[ExifIFD. InteroperabilityTag] = 1
             interop_is = True

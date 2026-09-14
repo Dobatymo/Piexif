@@ -2,11 +2,28 @@ import unittest
 
 from piexif._dump import dump
 from piexif._exceptions import InvalidImageDataError
-from piexif._exif import ExifIFD, GPSIFD, ImageIFD
+from piexif._exif import ExifIFD, GPSIFD, ImageIFD, InteropIFD
 from piexif._load import load
 
 
 class DumpValidationTests(unittest.TestCase):
+    def test_interop_without_exif(self):
+        interop = {InteropIFD.InteroperabilityIndex: b"R98"}
+        for siblings in ({}, {"0th": {ImageIFD.Make: b"Camera"},
+                              "GPS": {GPSIFD.GPSAltitudeRef: 0}}):
+            source = dict(siblings, Interop=interop)
+            exif = dump(source)
+            self.assertEqual(exif, dump(dict(source, Exif={})))
+            loaded = load(exif)
+            self.assertEqual(loaded["Interop"], interop)
+            self.assertIn(ImageIFD.ExifTag, loaded["0th"])
+            self.assertIn(ExifIFD.InteroperabilityTag, loaded["Exif"])
+            for ifd, values in siblings.items():
+                for tag, value in values.items():
+                    self.assertEqual(loaded[ifd][tag], value)
+            self.assertEqual(source, dict(siblings, Interop=interop))
+            self.assertEqual(interop, {InteropIFD.InteroperabilityIndex: b"R98"})
+
     def test_invalid_rational_type(self):
         exif_dict = {"GPS": {GPSIFD.GPSLatitude: "51,30,0"}}
         with self.assertRaises(ValueError):
