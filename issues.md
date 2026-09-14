@@ -123,6 +123,15 @@
   as an unsigned long, so valid negative offsets raised `struct.error`.
 - The tag is now declared as `TYPES.SShort`.
 
+## Undocumented load key_is_name parameter
+
+- Upstream: [hMatoba/Piexif#137](https://github.com/hMatoba/Piexif/issues/137).
+- Status: fixed in this fork's documentation.
+- Documented `key_is_name` in the `load()` docstring and both filename and
+  byte-input API entries. It replaces numeric tag IDs with names inside IFD
+  dictionaries while preserving values and thumbnail data. The documentation
+  also explains that `dump()` requires numeric tag IDs.
+
 ## `ExifIFD` string-name lookup
 
 - Upstream: [hMatoba/Piexif#139](https://github.com/hMatoba/Piexif/issues/139).

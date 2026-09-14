@@ -11,11 +11,14 @@ LITTLE_ENDIAN = b"\x49\x49"
 
 def load(input_data, key_is_name=False):
     """
-    py:function:: piexif.load(filename)
+    py:function:: piexif.load(input_data, key_is_name=False)
 
     Return exif data as dict. Keys(IFD name), be contained, are "0th", "Exif", "GPS", "Interop", "1st", and "thumbnail". Without "thumbnail", the value is dict(tag name/tag value). "thumbnail" value is JPEG as bytes.
 
-    :param str filename: JPEG or TIFF
+    :param input_data: JPEG, WebP, or TIFF filename, or JPEG, WebP, TIFF, or Exif bytes
+    :param bool key_is_name: If True, use tag names instead of numeric tag IDs
+        inside each IFD dictionary. Defaults to False. IFD names, values, and
+        thumbnail data are unchanged. Keep False when passing the result to dump().
     :return: Exif data({"0th":dict, "Exif":dict, "GPS":dict, "Interop":dict, "1st":dict, "thumbnail":bytes})
     :rtype: dict
     """

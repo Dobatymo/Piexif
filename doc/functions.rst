@@ -14,6 +14,7 @@ load
    Returns exif data as a dictionary with the following keys: "0th", "Exif", "GPS", "Interop", "1st", and "thumbnail". All values are dictionaries except for "thumbnail" which has the value of either a JPEG as bytes or None if no thumbnail is stored in the exif data.
 
    :param str filename: JPEG, WebP, or TIFF
+   :param bool key_is_name: If True, use tag names (for example, "Make") instead of numeric tag IDs (271) inside each IFD dictionary. Defaults to False. IFD names, values, and thumbnail data are unchanged. Keep False when passing the result to ``dump()``, which expects numeric tag IDs.
    :return: Exif data({"0th":dict, "Exif":dict, "GPS":dict, "Interop":dict, "1st":dict, "thumbnail":bytes})
    :rtype: dict
 
@@ -32,11 +33,12 @@ load
             except:
                 print(key, exif_dict[ifd_name][key])
 
-.. py:function:: piexif.load(data)
+.. py:function:: piexif.load(data, key_is_name=False)
 
    Returns exif data as a dictionary with the following keys unless its value does not exist in the file: "0th", "Exif", "GPS", "Interop", "1st", and "thumbnail". All values are dictionaries except for "thumbnail" which has the value of either a JPEG as bytes or None if no thumbnail is stored in the exif data.
 
    :param bytes data: JPEG, WebP, TIFF, or Exif
+   :param bool key_is_name: If True, use tag names (for example, "Make") instead of numeric tag IDs (271) inside each IFD dictionary. Defaults to False. IFD names, values, and thumbnail data are unchanged. Keep False when passing the result to ``dump()``, which expects numeric tag IDs.
    :return: Exif data({"0th":dict, "Exif":dict, "GPS":dict, "Interop":dict, "1st":dict, "thumbnail":bytes})
    :rtype: dict
 
