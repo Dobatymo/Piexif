@@ -83,6 +83,12 @@ class DumpValidationTests(unittest.TestCase):
             ("0th", ImageIFD.Orientation, -1),
             ("0th", ImageIFD.TimeZoneOffset, 32768),
             ("GPS", GPSIFD.GPSAltitudeRef, 256),
+            ("GPS", GPSIFD.GPSLatitude,
+             ((1, 1), (2, 1), (2476979795053773, 2251799813685248))),
+            ("GPS", GPSIFD.GPSLatitude,
+             ((1, 1), (2, 1), (4294967296, 1))),
+            ("GPS", GPSIFD.GPSLatitude,
+             ((1, 1), (2, 1), (1, 4294967296))),
             ("Exif", ExifIFD.ShutterSpeedValue, "0.00080000"),
             ("Exif", ExifIFD.MaxApertureValue, "2.0"),
             ("Exif", ExifIFD.FocalLength, "50.0"),
@@ -115,6 +121,12 @@ class DumpValidationTests(unittest.TestCase):
             dump({"Exif": {ExifIFD.SceneType: 1}})
         self.assertIn(str(ExifIFD.SceneType), str(caught.exception))
         self.assertIn("Exif", str(caught.exception))
+
+    def test_gps_rational_roundtrip(self):
+        for seconds in ((11, 10), (4294967295, 4294967294)):
+            value = ((25, 1), (3, 1), seconds)
+            exif = dump({"GPS": {GPSIFD.GPSLatitude: value}})
+            self.assertEqual(load(exif)["GPS"][GPSIFD.GPSLatitude], value)
 
     def test_signed_brightness_roundtrip(self):
         for value in ((-363, 100), (-2147483648, 1), (2147483647, 1)):

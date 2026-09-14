@@ -82,6 +82,21 @@
   returns `None` for these files, and `load()` returns empty metadata for
   both byte and filename inputs, consistently with JPEG without EXIF.
 
+## Large Fraction components overflow GPS RATIONAL fields
+
+- Upstream: [hMatoba/Piexif#106](https://github.com/hMatoba/Piexif/issues/106).
+- Status: invalid input; packing exception already hardened in this fork.
+- EXIF `RATIONAL` consists of two unsigned 32-bit integers, not two 64-bit
+  integers. Both components of the reported fraction
+  `2476979795053773 / 2251799813685248` exceed the maximum `4294967295`.
+  `dump()` rejects these values with `InvalidImageDataError` identifying the
+  tag and IFD; it does not approximate them silently.
+- GPS latitude and longitude use three rational pairs for degrees, minutes,
+  and seconds, with separate hemisphere reference tags. Callers must choose
+  suitable precision and ensure both components of each pair fit the field.
+  Python's exact conversion of a binary float to `Fraction` can produce
+  oversized components even for a small numeric value.
+
 ## Interop without Exif raises KeyError during dump
 
 - Upstream: [hMatoba/Piexif#114](https://github.com/hMatoba/Piexif/issues/114).
