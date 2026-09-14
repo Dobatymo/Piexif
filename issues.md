@@ -46,6 +46,17 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Out-of-range GPS byte raises struct.error
+
+- Upstream: [hMatoba/Piexif#130](https://github.com/hMatoba/Piexif/issues/130).
+- Status: reported exception already hardened; original file cause unverified.
+- Existing dump validation rejects out-of-range BYTE values with
+  `InvalidImageDataError` identifying the tag and IFD. It does not silently
+  discard GPS metadata. The linked sample is no longer available, so the
+  original tag and the reason for its out-of-range value could not be checked.
+- The proposed workaround clears GPS output in `finally`, even on success,
+  and is not used in this fork.
+
 ## Numeric strings cause UnboundLocalError during dump
 
 - Upstream: [hMatoba/Piexif#131](https://github.com/hMatoba/Piexif/issues/131).
