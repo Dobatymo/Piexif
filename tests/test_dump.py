@@ -43,6 +43,17 @@ class DumpValidationTests(unittest.TestCase):
             self.assertIn(str(tag), str(caught.exception))
             self.assertIn(ifd, str(caught.exception))
 
+    def test_scene_type_roundtrip(self):
+        value = b"\x01"
+        exif = dump({"Exif": {ExifIFD.SceneType: value}})
+        self.assertEqual(load(exif)["Exif"][ExifIFD.SceneType], value)
+
+    def test_scene_type_rejects_integer(self):
+        with self.assertRaises(InvalidImageDataError) as caught:
+            dump({"Exif": {ExifIFD.SceneType: 1}})
+        self.assertIn(str(ExifIFD.SceneType), str(caught.exception))
+        self.assertIn("Exif", str(caught.exception))
+
     def test_signed_brightness_roundtrip(self):
         for value in ((-363, 100), (-2147483648, 1), (2147483647, 1)):
             exif = dump({"Exif": {ExifIFD.BrightnessValue: value}})

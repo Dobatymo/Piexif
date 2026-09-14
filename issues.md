@@ -46,6 +46,17 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Integer SceneType cannot be dumped
+
+- Upstream: [hMatoba/Piexif#95](https://github.com/hMatoba/Piexif/issues/95).
+- Status: not planned; incorrect dump value type, original file cause unverified.
+- [EXIF specifies](https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf)
+  `SceneType` (41729) as `UNDEFINED`, count 1. The value for a directly
+  photographed image is the binary byte `b"\x01"`, which already round-trips.
+  Integer input is rejected with `InvalidImageDataError` identifying the tag
+  and IFD. No sample is provided to establish why the original value was an integer.
+- The issue's workaround `b"1"` writes byte 49, not the specified value 1.
+
 ## Loading simple WebP without EXIF raises ValueError
 
 - Upstream: [hMatoba/Piexif#98](https://github.com/hMatoba/Piexif/issues/98).
