@@ -1,3 +1,4 @@
+import struct
 import unittest
 
 from piexif._dump import dump
@@ -7,6 +8,39 @@ from piexif._load import load
 
 
 class DumpValidationTests(unittest.TestCase):
+    def test_nested_ifds_have_null_next_pointers(self):
+        cases = [
+            {"Exif": {ExifIFD.ExifVersion: b"0230"}},
+            {"GPS": {GPSIFD.GPSAltitudeRef: 0}},
+            {"Interop": {InteropIFD.InteroperabilityIndex: b"R98"}},
+            {"Exif": {ExifIFD.DateTimeOriginal: b"2026:09:14 12:34:56"},
+             "GPS": {GPSIFD.GPSLatitude: ((1, 1), (2, 1), (3, 1))},
+             "Interop": {InteropIFD.InteroperabilityIndex: b"R98"}},
+        ]
+        for source in cases:
+            exif = dump(source)
+            loaded = load(exif)
+            tiff = exif[6:]
+            pointers = []
+            if "Exif" in source or "Interop" in source:
+                pointers.append(loaded["0th"][ImageIFD.ExifTag])
+            if "GPS" in source:
+                pointers.append(loaded["0th"][ImageIFD.GPSTag])
+            if "Interop" in source:
+                pointers.append(loaded["Exif"][ExifIFD.InteroperabilityTag])
+            for pointer in pointers:
+                count = struct.unpack_from(">H", tiff, pointer)[0]
+                end = pointer + 2 + count * 12
+                self.assertEqual(tiff[end:end + 4], b"\x00" * 4)
+                for pos in range(pointer + 2, end, 12):
+                    tag, kind, length, offset = struct.unpack_from(">HHII", tiff, pos)
+                    size = length * (8 if kind == 5 else 1)
+                    if kind in (2, 5, 7) and size > 4:
+                        self.assertGreaterEqual(offset, end + 4)
+            for ifd, values in source.items():
+                for tag, value in values.items():
+                    self.assertEqual(loaded[ifd][tag], value)
+
     def test_interop_without_exif(self):
         interop = {InteropIFD.InteroperabilityIndex: b"R98"}
         for siblings in ({}, {"0th": {ImageIFD.Make: b"Camera"},

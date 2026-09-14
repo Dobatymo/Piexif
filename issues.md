@@ -91,6 +91,18 @@
   as explicitly supplying `Exif: {}`. Other supplied metadata is preserved
   and the caller's dictionary is not modified.
 
+## Missing next-IFD pointers in nested directories
+
+- Upstream: [hMatoba/Piexif#116](https://github.com/hMatoba/Piexif/issues/116).
+- Status: fixed in this fork.
+- `dump()` omitted the four-byte next-IFD offsets after Exif, GPS, and Interop
+  entry tables. Readers expecting the complete directory structure could read
+  subsequent value bytes as a pointer or encounter the end of the EXIF block.
+- The writer now emits zero next-IFD offsets and accounts for them in value,
+  directory, and thumbnail offsets. This follows the IFD structure in
+  [EXIF sections 4.6.2 and 4.6.3](https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf).
+  Loading older compact nested IFDs remains supported.
+
 ## Truncated IFD count raises struct.error during load
 
 - Upstream: [hMatoba/Piexif#129](https://github.com/hMatoba/Piexif/issues/129).

@@ -67,13 +67,13 @@ def dump(exif_dict_original):
 
     if exif_is:
         exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
-        exif_length = len(exif_set[0]) + interop_is * 12 + len(exif_set[1])
+        exif_length = len(exif_set[0]) + interop_is * 12 + 4 + len(exif_set[1])
     else:
         exif_bytes = b""
         exif_length = 0
     if gps_is:
         gps_set = _dict_to_bytes(gps_ifd, "GPS", zeroth_length + exif_length)
-        gps_bytes = b"".join(gps_set)
+        gps_bytes = gps_set[0] + b"\x00" * 4 + gps_set[1]
         gps_length = len(gps_bytes)
     else:
         gps_bytes = b""
@@ -81,7 +81,7 @@ def dump(exif_dict_original):
     if interop_is:
         offset = zeroth_length + exif_length + gps_length
         interop_set = _dict_to_bytes(interop_ifd, "Interop", offset)
-        interop_bytes = b"".join(interop_set)
+        interop_bytes = interop_set[0] + b"\x00" * 4 + interop_set[1]
         interop_length = len(interop_bytes)
     else:
         interop_bytes = b""
@@ -145,7 +145,7 @@ def dump(exif_dict_original):
     zeroth_bytes = (zeroth_set[0] + exif_pointer + gps_pointer +
                     first_ifd_pointer + zeroth_set[1])
     if exif_is:
-        exif_bytes = exif_set[0] + interop_pointer + exif_set[1]
+        exif_bytes = exif_set[0] + interop_pointer + b"\x00" * 4 + exif_set[1]
 
     return (header + zeroth_bytes + exif_bytes + gps_bytes +
             interop_bytes + first_bytes)
@@ -312,10 +312,7 @@ def _value_to_bytes(raw_value, value_type, offset):
 def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
     tag_count = len(ifd_dict)
     entry_header = struct.pack(">H", tag_count)
-    if ifd in ("0th", "1st"):
-        entries_length = 2 + tag_count * 12 + 4
-    else:
-        entries_length = 2 + tag_count * 12
+    entries_length = 2 + tag_count * 12 + 4
     entries = b""
     values = b""
 
