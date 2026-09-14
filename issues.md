@@ -118,6 +118,16 @@
   [EXIF sections 4.6.2 and 4.6.3](https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf).
   Loading older compact nested IFDs remains supported.
 
+## Insta360 AsShotNeutral rational values cannot be dumped
+
+- Upstream: [hMatoba/Piexif#119](https://github.com/hMatoba/Piexif/issues/119).
+- Status: already fixed in this fork by the change for #86.
+- The report describes the same `AsShotNeutral` (50728) type limitation:
+  DNG permits both `SHORT` and `RATIONAL`. Rational pairs now serialize as
+  `RATIONAL`, while integer values retain `SHORT` encoding. Both forms
+  round-trip and are covered by existing tests. No sample image was supplied
+  to verify other metadata from the reported Insta360 file.
+
 ## GPSAltitudeRef value 256 cannot be dumped
 
 - Upstream: [hMatoba/Piexif#120](https://github.com/hMatoba/Piexif/issues/120).
