@@ -118,6 +118,19 @@
   [EXIF sections 4.6.2 and 4.6.3](https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf).
   Loading older compact nested IFDs remains supported.
 
+## GPSAltitudeRef value 256 cannot be dumped
+
+- Upstream: [hMatoba/Piexif#120](https://github.com/hMatoba/Piexif/issues/120).
+- Status: invalid input; packing exception already hardened in this fork.
+- [EXIF defines](https://www.cipa.jp/std/documents/e/DC-008-2012_E_C.pdf)
+  `GPSAltitudeRef` (GPS tag 5) as `BYTE`, count 1: 0 denotes above sea level
+  and 1 below sea level. The reported value 256 cannot fit in a byte;
+  wrapping it in `(256,)` does not change that limit.
+- Both forms are rejected with `InvalidImageDataError` identifying the tag
+  and IFD. No image was supplied to verify its stored type or why loading
+  returned 256. Silently clamping or wrapping the value could change the
+  altitude's meaning and is not implemented.
+
 ## Truncated IFD count raises struct.error during load
 
 - Upstream: [hMatoba/Piexif#129](https://github.com/hMatoba/Piexif/issues/129).

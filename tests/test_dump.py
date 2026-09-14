@@ -83,6 +83,7 @@ class DumpValidationTests(unittest.TestCase):
             ("0th", ImageIFD.Orientation, -1),
             ("0th", ImageIFD.TimeZoneOffset, 32768),
             ("GPS", GPSIFD.GPSAltitudeRef, 256),
+            ("GPS", GPSIFD.GPSAltitudeRef, (256,)),
             ("GPS", GPSIFD.GPSLatitude,
              ((1, 1), (2, 1), (2476979795053773, 2251799813685248))),
             ("GPS", GPSIFD.GPSLatitude,
