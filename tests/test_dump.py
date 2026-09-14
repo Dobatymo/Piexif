@@ -32,6 +32,10 @@ class DumpValidationTests(unittest.TestCase):
             ("0th", ImageIFD.Orientation, -1),
             ("0th", ImageIFD.TimeZoneOffset, 32768),
             ("GPS", GPSIFD.GPSAltitudeRef, 256),
+            ("Exif", ExifIFD.ShutterSpeedValue, "0.00080000"),
+            ("Exif", ExifIFD.MaxApertureValue, "2.0"),
+            ("Exif", ExifIFD.FocalLength, "50.0"),
+            ("Exif", ExifIFD.FocalLengthIn35mmFilm, "50.0"),
         ]
         for ifd, tag, value in cases:
             with self.assertRaises(InvalidImageDataError) as caught:

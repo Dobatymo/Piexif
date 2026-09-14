@@ -46,6 +46,16 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Numeric strings cause UnboundLocalError during dump
+
+- Upstream: [hMatoba/Piexif#131](https://github.com/hMatoba/Piexif/issues/131).
+- Status: already hardened in this fork; the supplied values have wrong types.
+- `ShutterSpeedValue`, `MaxApertureValue` and `FocalLength` require rational
+  pairs, not numeric strings. `FocalLengthIn35mmFilm` requires an integer.
+- Existing dump validation rejects these values with `InvalidImageDataError`
+  identifying the tag and IFD, instead of leaking `UnboundLocalError`.
+  Numeric strings are not converted automatically.
+
 ## Truncated DateTimeOriginal without a counted NUL terminator
 
 - Upstream: [hMatoba/Piexif#134](https://github.com/hMatoba/Piexif/issues/134).
