@@ -42,6 +42,14 @@ There are only just five functions.
 - *remove(filename)* - Remove exif from JPEG, or WebP.
 - *transplant(filename, filename)* - Transplant exif from JPEG to JPEG.
 
+Preservation
+------------
+
+This fork aims to preserve supported metadata values through ``load()`` and
+``dump()``, and unchanged image data and unrelated metadata during EXIF
+insertion, removal and transplantation. Rebuilt EXIF is not guaranteed to be
+byte-identical. See `preservation goals and limitations <doc/about.rst#preservation-goals-in-this-fork>`_.
+
 Example
 -------
 

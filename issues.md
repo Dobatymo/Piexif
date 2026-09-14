@@ -46,6 +46,18 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Truncated DateTimeOriginal without a counted NUL terminator
+
+- Upstream: [hMatoba/Piexif#134](https://github.com/hMatoba/Piexif/issues/134).
+- Status: fixed in this fork with bounded support for unterminated ASCII.
+- The sample declares 19 bytes for `DateTimeOriginal`, excluding its NUL
+  terminator; EXIF specifies 20 bytes including the NUL. The parser now reads
+  exactly the declared count and removes one trailing NUL only when present.
+  It returns the full timestamp without scanning past the field boundary.
+- Existing bounds checks still reject values extending beyond the input.
+  Zero-count ASCII values now return empty bytes instead of inline padding.
+- Reproduction image: [20_BIKE_C_4_002.jpg](https://issue-report-resources.s3.eu-central-1.amazonaws.com/piexif/20_BIKE_C_4_002.jpg).
+
 ## Negative `TimeZoneOffset` cannot be dumped
 
 - Upstream: [hMatoba/Piexif#135](https://github.com/hMatoba/Piexif/issues/135).

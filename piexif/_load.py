@@ -179,9 +179,12 @@ class _ExifReader(object):
         elif t == TYPES.Ascii: # ASCII
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = self.tiftag[pointer: pointer+length - 1]
+                data = self.tiftag[pointer: pointer+length]
             else:
-                data = value[0: length - 1]
+                data = value[0: length]
+            # Some writers omit the terminator; never read beyond the count.
+            if data.endswith(b"\x00"):
+                data = data[:-1]
         elif t == TYPES.Short: # SHORT
             if length > 2:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]

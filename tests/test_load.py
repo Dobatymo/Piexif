@@ -24,3 +24,39 @@ class LoadValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidImageDataError) as caught:
             load(data)
         self.assertEqual(str(caught.exception), "Exif value exceeds the image data.")
+
+    def check_ascii_value(self, payload, expected, trailing=b""):
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            value = (payload.ljust(4, b"X") if len(payload) <= 4
+                     else struct.pack(endian + "I", 26))
+            data = marker + struct.pack(endian + "HIH", 42, 8, 1)
+            data += struct.pack(endian + "HHI4s", 270, 2, len(payload), value)
+            data += b"\x00" * 4
+            if len(payload) > 4:
+                data += payload
+            data += trailing
+            self.assertEqual(load(data)["0th"][270], expected)
+
+    def test_ascii_without_terminator_inline(self):
+        for payload in (b"A", b"AB", b"ABC", b"ABCD"):
+            self.check_ascii_value(payload, payload, b"unrelated\x00")
+
+    def test_ascii_without_terminator_at_offset(self):
+        for trailing in (b"", b"\x00", b"unrelated\x00"):
+            self.check_ascii_value(b"2021:08:06 16:10:41",
+                                   b"2021:08:06 16:10:41", trailing)
+
+    def test_ascii_terminator_preserves_existing_behavior(self):
+        for payload in (b"\x00", b"A\x00", b"AB\x00\x00", b"long\x00value\x00\x00"):
+            self.check_ascii_value(payload, payload[:-1], b"unrelated")
+
+    def test_ascii_zero_count_does_not_read_inline_padding(self):
+        self.check_ascii_value(b"", b"")
+
+    def test_ascii_rejects_out_of_bounds_value(self):
+        for count, pointer in ((5, 26), (0xFFFFFFFF, 26), (5, 0xFFFFFFFF)):
+            data = b"II" + struct.pack("<HIH", 42, 8, 1)
+            data += struct.pack("<HHII", 270, 2, count, pointer)
+            data += b"\x00" * 4 + b"ABCD"
+            with self.assertRaises(InvalidImageDataError):
+                load(data)
