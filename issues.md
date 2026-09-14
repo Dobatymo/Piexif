@@ -91,6 +91,21 @@
   as explicitly supplying `Exif: {}`. Other supplied metadata is preserved
   and the caller's dictionary is not modified.
 
+## Truncated IFD count raises struct.error during load
+
+- Upstream: [hMatoba/Piexif#129](https://github.com/hMatoba/Piexif/issues/129).
+- Status: reported failure already hardened; original file cause unverified.
+- IFD offsets without room for the two-byte entry count are rejected with
+  `InvalidImageDataError`. This includes the nested Interop IFD in the report.
+  The suggested workaround returns an empty dictionary and silently discards
+  the invalid IFD; this fork rejects the malformed structure instead.
+- An explicit [partial recovery mode](features.md#partial-recovery-of-damaged-exif)
+  could extract safely readable metadata while reporting incomplete parsing.
+  This is a separate future feature from round-tripping nonconforming values;
+  strict rejection remains the default to avoid silent metadata loss on save.
+- The [linked JPEG](https://read.nando.audio/images/warsaw-veturilo.jpg)
+  currently contains no EXIF and no longer reproduces the reported failure.
+
 ## Out-of-range GPS byte raises struct.error
 
 - Upstream: [hMatoba/Piexif#130](https://github.com/hMatoba/Piexif/issues/130).

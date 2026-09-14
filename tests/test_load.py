@@ -16,6 +16,17 @@ class LoadValidationTests(unittest.TestCase):
         result = reader.get_ifd_dict(8, "Exif", True)
         self.assertEqual(result[0xFFFF][2], b"\x00\x00\x00\x00")
 
+    def test_rejects_truncated_interop_ifd(self):
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            for pointer in (39, 40, 0xFFFFFFFF):
+                data = marker + struct.pack(endian + "HIH", 42, 8, 1)
+                data += struct.pack(endian + "HHII", 34665, 4, 1, 26)
+                data += b"\x00" * 4
+                data += struct.pack(endian + "HHHII", 1, 40965, 4, 1, pointer)
+                with self.assertRaises(InvalidImageDataError) as caught:
+                    load(data)
+                self.assertEqual(str(caught.exception), "Invalid IFD offset.")
+
     def test_rejects_huge_corrupt_value(self):
         data = b"Exif\x00\x00II\x2a\x00\x08\x00\x00\x00"
         data += struct.pack("<H", 1)

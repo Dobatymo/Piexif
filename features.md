@@ -18,3 +18,18 @@ applications edit other tags without first repairing every nonconforming field.
 - Retain bounds checks and reject truncated data and unsafe lengths or offsets.
   Supporting nonconforming tag types would not imply arbitrary corrupt-input
   recovery or byte-identical file round trips.
+
+## Partial recovery of damaged EXIF
+
+Offer an explicit tolerant loading mode that extracts safely readable metadata
+when another field or IFD is damaged. This is separate from round-tripping
+safely parsed but nonconforming camera metadata.
+
+- Motivating issue: [hMatoba/Piexif#129](https://github.com/hMatoba/Piexif/issues/129),
+  which reports an unreadable Interop IFD entry count.
+- Report incomplete parsing and identify skipped fields or IFDs, rather than
+  silently presenting unreadable metadata as absent.
+- Keep strict loading as the default and retain bounds checks. Recovery must
+  not follow invalid offsets or guess where missing structures belong.
+- Partial results cannot preserve unreadable metadata when dumped. Make this
+  limitation explicit so callers can choose whether to save the recovered data.
