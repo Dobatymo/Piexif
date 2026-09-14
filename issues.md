@@ -38,6 +38,22 @@
 - The example also modifies `1st`, which describes the thumbnail and is omitted
   when no thumbnail is supplied. Use `0th` for primary-image Make and Software.
 
+## ComponentsConfiguration tuple cannot be dumped
+
+- Upstream: [hMatoba/Piexif#83](https://github.com/hMatoba/Piexif/issues/83).
+- Status: not planned; nonconforming EXIF type in the supplied image.
+- The [sample image](https://user-images.githubusercontent.com/48385947/54073205-a4d43e00-4284-11e9-8b6f-0e08e06732d4.jpg)
+  declares `ComponentsConfiguration` (37121) as `BYTE`, count 4, with bytes
+  `01 02 03 00`. [EXIF requires](https://www.cipa.jp/std/documents/e/DC-008-2012_E_C.pdf)
+  `UNDEFINED`, count 4. Loading follows the stored type and returns a tuple;
+  dumping rejects it with `InvalidImageDataError` identifying the tag and IFD.
+- The correct binary value `b"\x01\x02\x03\x00"` already round-trips.
+  The proposed comma-separated ASCII workaround writes seven different bytes
+  and does not repair the field. Automatic wrong-type conversion is not added.
+- Dumping safely parsed but nonconforming camera metadata could be a future
+  feature, allowing `load()` results to round-trip despite incorrect stored
+  tag types. See [possible features](features.md#round-trip-nonconforming-camera-metadata).
+
 ## `AsShotNeutral` rational values cannot be dumped
 
 - Upstream: [hMatoba/Piexif#86](https://github.com/hMatoba/Piexif/issues/86).

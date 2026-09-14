@@ -43,6 +43,17 @@ class DumpValidationTests(unittest.TestCase):
             self.assertIn(str(tag), str(caught.exception))
             self.assertIn(ifd, str(caught.exception))
 
+    def test_components_configuration_roundtrip(self):
+        value = b"\x01\x02\x03\x00"
+        exif = dump({"Exif": {ExifIFD.ComponentsConfiguration: value}})
+        self.assertEqual(load(exif)["Exif"][ExifIFD.ComponentsConfiguration], value)
+
+    def test_components_configuration_rejects_tuple(self):
+        with self.assertRaises(InvalidImageDataError) as caught:
+            dump({"Exif": {ExifIFD.ComponentsConfiguration: (1, 2, 3, 0)}})
+        self.assertIn(str(ExifIFD.ComponentsConfiguration), str(caught.exception))
+        self.assertIn("Exif", str(caught.exception))
+
     def test_scene_type_roundtrip(self):
         value = b"\x01"
         exif = dump({"Exif": {ExifIFD.SceneType: value}})
