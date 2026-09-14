@@ -165,6 +165,9 @@ def get_exif(data):
     if data[0:4] != b"RIFF" or data[8:12] != b"WEBP":
         raise ValueError("Not WebP")
 
+    if data[12:16] in (b"VP8 ", b"VP8L"):
+        return None  # Simple WebP has no extended metadata.
+
     if data[12:16] != b"VP8X":
         raise ValueError("doesnot have exif")
 

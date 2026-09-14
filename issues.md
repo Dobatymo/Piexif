@@ -46,6 +46,15 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Loading simple WebP without EXIF raises ValueError
+
+- Upstream: [hMatoba/Piexif#98](https://github.com/hMatoba/Piexif/issues/98).
+- Status: fixed in this fork.
+- Simple lossy (`VP8 `) and lossless (`VP8L`) WebP files do not require a
+  `VP8X` header and cannot contain EXIF in that simple form. `get_exif()` now
+  returns `None` for these files, and `load()` returns empty metadata for
+  both byte and filename inputs, consistently with JPEG without EXIF.
+
 ## Out-of-range GPS byte raises struct.error
 
 - Upstream: [hMatoba/Piexif#130](https://github.com/hMatoba/Piexif/issues/130).

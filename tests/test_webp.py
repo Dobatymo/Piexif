@@ -3,7 +3,7 @@ import struct
 import unittest
 
 from piexif._dump import dump
-from piexif._webp import get_exif, insert, remove, set_vp8x, split
+from piexif._webp import get_exif, get_file_header, insert, merge_chunks, remove, set_vp8x, split
 
 
 class WebpCanvasTests(unittest.TestCase):
@@ -67,3 +67,13 @@ class WebpCanvasTests(unittest.TestCase):
 
     def test_animation_with_nested_alpha_chunks(self):
         self.check_animation_edits("pil_animated3.webp")
+
+    def test_simple_webp_has_no_exif(self):
+        for filename, fourcc in (("tool1.webp", b"VP8 "), ("pil2.webp", b"VP8L")):
+            path = os.path.join(os.path.dirname(__file__), "images", filename)
+            with open(path, "rb") as source:
+                chunks = [chunk for chunk in split(source.read())
+                          if chunk["fourcc"] == fourcc]
+            self.assertEqual(len(chunks), 1)
+            data = get_file_header(chunks) + merge_chunks(chunks)
+            self.assertIsNone(get_exif(data))

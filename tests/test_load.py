@@ -1,3 +1,4 @@
+import os
 import struct
 import unittest
 
@@ -60,3 +61,12 @@ class LoadValidationTests(unittest.TestCase):
             data += b"\x00" * 4 + b"ABCD"
             with self.assertRaises(InvalidImageDataError):
                 load(data)
+
+    def test_load_simple_webp_without_exif(self):
+        path = os.path.join(os.path.dirname(__file__), "images", "pil2.webp")
+        with open(path, "rb") as source:
+            data = source.read()
+        expected = {"0th": {}, "Exif": {}, "GPS": {}, "Interop": {},
+                    "1st": {}, "thumbnail": None}
+        self.assertEqual(load(data), expected)
+        self.assertEqual(load(path), expected)
