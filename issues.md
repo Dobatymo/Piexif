@@ -61,6 +61,14 @@
 - `ExifIFD` is a class containing numeric tag IDs. Dynamic lookup already works
   with `getattr(piexif.ExifIFD, "DateTimeOriginal")`.
 
+## Missing CameraLabel and RawToPreviewGain tags
+
+- Upstream: [hMatoba/Piexif#142](https://github.com/hMatoba/Piexif/issues/142).
+- Status: fixed in this fork.
+- Added `CameraLabel` (51105, ASCII) and `RawToPreviewGain` (51112, DOUBLE)
+  to the image tag table and `ImageIFD`. Loading now retains these values,
+  and dumping supports them using the existing ASCII and double encoders.
+
 ## Animated WebP loses its alpha flag
 
 - Upstream: [hMatoba/Piexif#144](https://github.com/hMatoba/Piexif/issues/144).

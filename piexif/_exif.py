@@ -198,6 +198,8 @@ TAGS = {
                51008: {'name': 'OpcodeList1', 'type': TYPES.Undefined},
                51009: {'name': 'OpcodeList2', 'type': TYPES.Undefined},
                51022: {'name': 'OpcodeList3', 'type': TYPES.Undefined},
+               51105: {'name': 'CameraLabel', 'type': TYPES.Ascii},
+               51112: {'name': 'RawToPreviewGain', 'type': TYPES.DFloat},
                60606: {'name': 'ZZZTestSlong1', 'type': TYPES.SLong},
                60607: {'name': 'ZZZTestSlong2', 'type': TYPES.SLong},
                60608: {'name': 'ZZZTestSByte', 'type': TYPES.SByte},
@@ -507,6 +509,8 @@ class ImageIFD:
     OpcodeList2 = 51009
     OpcodeList3 = 51022
     NoiseProfile = 51041
+    CameraLabel = 51105
+    RawToPreviewGain = 51112
     ZZZTestSlong1 = 60606
     ZZZTestSlong2 = 60607
     ZZZTestSByte = 60608
