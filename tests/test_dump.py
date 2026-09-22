@@ -12,6 +12,17 @@ class DumpValidationTests(unittest.TestCase):
     thumbnail = (b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00"
                  b"\xff\xd9")
 
+    def test_thumbnail_ifd_entries_are_sorted(self):
+        raw = dump({"1st": {ImageIFD.XMLPacket: (1,)},
+                    "thumbnail": self.thumbnail})[6:]
+        first = struct.unpack_from(">I", raw, 10)[0]  # Empty root's next pointer.
+        count = struct.unpack_from(">H", raw, first)[0]
+        tags = [struct.unpack_from(">H", raw, first + 2 + index * 12)[0]
+                for index in range(count)]
+        self.assertEqual(tags, [ImageIFD.JPEGInterchangeFormat,
+                               ImageIFD.JPEGInterchangeFormatLength,
+                               ImageIFD.XMLPacket])
+
     def test_all_standard_ifds_are_word_aligned(self):
         thumbnail = self.thumbnail
         for length in (4, 5):

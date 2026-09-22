@@ -138,15 +138,12 @@ def dump(exif_dict_original):
                          exif_length + gps_length + interop_length +
                          global_parameters_length)
         first_ifd_pointer = struct.pack(">L", pointer_value)
-        thumbnail_pointer = (pointer_value + len(first_set[0]) + 24 +
+        thumbnail_pointer = (pointer_value + len(first_set[0]) +
                              4 + len(first_set[1]))
-        thumbnail_p_bytes = (b"\x02\x01\x00\x04\x00\x00\x00\x01" +
-                             struct.pack(">L", thumbnail_pointer))
-        thumbnail_length_bytes = (b"\x02\x02\x00\x04\x00\x00\x00\x01" +
-                                  struct.pack(">L", len(thumbnail)))
-        first_bytes = (first_set[0] + thumbnail_p_bytes +
-                       thumbnail_length_bytes + b"\x00\x00\x00\x00" +
-                       first_set[1] + thumbnail)
+        first_ifd[ImageIFD.JPEGInterchangeFormat] = thumbnail_pointer
+        first_ifd[ImageIFD.JPEGInterchangeFormatLength] = len(thumbnail)
+        first_set = _dict_to_bytes(first_ifd, "1st", pointer_value - TIFF_HEADER_LENGTH)
+        first_bytes = first_set[0] + b"\x00" * 4 + first_set[1] + thumbnail
     else:
         first_ifd_pointer = b"\x00\x00\x00\x00"
 
@@ -469,9 +466,6 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
     values = b""
 
     for n, key in enumerate(sorted(ifd_dict)):
-        if (ifd == "1st") and (key in (ImageIFD.JPEGInterchangeFormat, ImageIFD.JPEGInterchangeFormatLength)):
-            continue
-
         raw_value = ifd_dict[key]
         key_str = struct.pack(">H", key)
         value_type = TAGS[ifd][key]["type"]
