@@ -94,10 +94,9 @@ Files cannot be saved to disk when using GoogleAppEngine. Therefore, files must 
 Invalid EXIF Thumbnails
 -----------------------
 
-EXIF data will sometimes be either corrupted or written by non-compliant software. When this happens, it's possible
-that the thumbnail stored in EXIF cannot be found when attempting to dump the EXIF dictionary.
-
-A good solution would be to remove the thumbnail from the EXIF dictionary and then re-attempt the dump:
+Invalid JPEG thumbnail bytes can cause ``dump()`` to fail. For the standard
+dictionary API, retry without the 1st directory and thumbnail when the
+failure is known to be thumbnail-related:
 
 ::
 
@@ -107,4 +106,15 @@ A good solution would be to remove the thumbnail from the EXIF dictionary and th
         del exif_dict["1st"]
         del exif_dict["thumbnail"]
         exif_bytes = piexif.dump(exif_dict)
+
+This retains the existing standard-API recovery pattern. ``InvalidImageDataError``
+can also indicate other invalid metadata; not every such error is a thumbnail
+problem.
+
+For the directory list returned by ``load_ifds(..., load_jpeg_data=True)``,
+remove invalid JPEG data on its owning directory, for example
+``directories[1]["jpeg_data"] = None``, then call ``piexif.dump_ifds(directories)``.
+This retains the directory and its other metadata, while removing its JPEG
+bytes and offset/length tags (513/514). Other directories' data is unchanged. This does not
+repair errors in other metadata.
 

@@ -4,6 +4,7 @@ import struct
 
 from ._common import *
 from ._exif import *
+from ._exif import _IFD_POINTERS
 from ._exceptions import InvalidImageDataError
 
 
@@ -12,25 +13,31 @@ TIFF_HEADER_LENGTH = 8
 
 def dump(exif_dict_original):
     """
-    py:function:: piexif.load(data)
+    py:function:: piexif.dump(exif_dict)
 
-    Return exif as bytes.
+    Serialize standard Exif dictionaries to Exif bytes. Use dump_ifds() for
+    the advanced nested directory-list API. Caller input is unchanged.
+    Thumbnail bytes are written only when a "1st" dictionary is supplied;
+    absent/None thumbnail omits that directory.
 
-    :param dict exif: Exif data({"0th":dict, "Exif":dict, "GPS":dict, "Interop":dict, "1st":dict, "thumbnail":bytes})
-    :return: Exif
+    Unknown/private pointers and external pixel data are not relocated or
+    copied. Only supplied JPEG thumbnail payloads are copied and repointed.
+
+    :param exif_dict: Standard metadata dictionary
+    :return: Exif bytes
     :rtype: bytes
     """
+    if isinstance(exif_dict_original, list):
+        raise InvalidImageDataError("Use dump_ifds() for a directory list.")
     exif_dict = copy.deepcopy(exif_dict_original)
     header = b"Exif\x00\x00\x4d\x4d\x00\x2a\x00\x00\x00\x08"
     exif_is = False
     gps_is = False
     interop_is = False
+    global_parameters_is = False
     first_is = False
 
-    if "0th" in exif_dict:
-        zeroth_ifd = exif_dict["0th"]
-    else:
-        zeroth_ifd = {}
+    zeroth_ifd = exif_dict.get("0th", {})
 
     if (("Exif" in exif_dict) and len(exif_dict["Exif"]) or
           ("Interop" in exif_dict) and len(exif_dict["Interop"]) ):
@@ -53,21 +60,25 @@ def dump(exif_dict_original):
     elif ImageIFD.GPSTag in zeroth_ifd:
         zeroth_ifd.pop(ImageIFD.GPSTag)
 
-    if (("1st" in exif_dict) and
-            ("thumbnail" in exif_dict) and
-            (exif_dict["thumbnail"] is not None)):
+    if ("GlobalParameters" in exif_dict) and len(exif_dict["GlobalParameters"]):
+        zeroth_ifd[ImageIFD.GlobalParametersIFD] = 1
+        global_parameters_is = True
+        global_parameters_ifd = exif_dict["GlobalParameters"]
+    elif ImageIFD.GlobalParametersIFD in zeroth_ifd:
+        zeroth_ifd.pop(ImageIFD.GlobalParametersIFD)
+
+    if "1st" in exif_dict and exif_dict.get("thumbnail") is not None:
         first_is = True
-        exif_dict["1st"][ImageIFD.JPEGInterchangeFormat] = 1
-        exif_dict["1st"][ImageIFD.JPEGInterchangeFormatLength] = 1
         first_ifd = exif_dict["1st"]
+        first_ifd[ImageIFD.JPEGInterchangeFormat] = 1
+        first_ifd[ImageIFD.JPEGInterchangeFormatLength] = 1
 
     zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
-    zeroth_length = (len(zeroth_set[0]) + exif_is * 12 + gps_is * 12 + 4 +
-                     len(zeroth_set[1]))
+    zeroth_length = len(zeroth_set[0]) + 4 + len(zeroth_set[1])
 
     if exif_is:
         exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
-        exif_length = len(exif_set[0]) + interop_is * 12 + 4 + len(exif_set[1])
+        exif_length = len(exif_set[0]) + 4 + len(exif_set[1])
     else:
         exif_bytes = b""
         exif_length = 0
@@ -86,8 +97,19 @@ def dump(exif_dict_original):
     else:
         interop_bytes = b""
         interop_length = 0
-    if first_is:
+    if global_parameters_is:
         offset = zeroth_length + exif_length + gps_length + interop_length
+        global_parameters_padding = b"\x00" * (offset % 2)
+        global_parameters_set = _dict_to_bytes(global_parameters_ifd, "GlobalParameters", offset + len(global_parameters_padding))
+        body = global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
+        global_parameters_bytes = global_parameters_padding + body + b"\x00" * (len(body) % 2)
+        global_parameters_length = len(global_parameters_bytes)
+    else:
+        global_parameters_bytes = b""
+        global_parameters_length = 0
+    if first_is:
+        offset = (zeroth_length + exif_length + gps_length + interop_length +
+                  global_parameters_length)
         first_set = _dict_to_bytes(first_ifd, "1st", offset)
         thumbnail = _get_thumbnail(exif_dict["thumbnail"])
         thumbnail_max_size = 64000
@@ -96,39 +118,22 @@ def dump(exif_dict_original):
     else:
         first_bytes = b""
     if exif_is:
-        pointer_value = TIFF_HEADER_LENGTH + zeroth_length
-        pointer_str = struct.pack(">I", pointer_value)
-        key = ImageIFD.ExifTag
-        key_str = struct.pack(">H", key)
-        type_str = struct.pack(">H", TYPES.Long)
-        length_str = struct.pack(">I", 1)
-        exif_pointer = key_str + type_str + length_str + pointer_str
-    else:
-        exif_pointer = b""
+        zeroth_ifd[ImageIFD.ExifTag] = TIFF_HEADER_LENGTH + zeroth_length
     if gps_is:
-        pointer_value = TIFF_HEADER_LENGTH + zeroth_length + exif_length
-        pointer_str = struct.pack(">I", pointer_value)
-        key = ImageIFD.GPSTag
-        key_str = struct.pack(">H", key)
-        type_str = struct.pack(">H", TYPES.Long)
-        length_str = struct.pack(">I", 1)
-        gps_pointer = key_str + type_str + length_str + pointer_str
-    else:
-        gps_pointer = b""
+        zeroth_ifd[ImageIFD.GPSTag] = (TIFF_HEADER_LENGTH + zeroth_length +
+                                     exif_length)
     if interop_is:
-        pointer_value = (TIFF_HEADER_LENGTH +
-                         zeroth_length + exif_length + gps_length)
-        pointer_str = struct.pack(">I", pointer_value)
-        key = ExifIFD.InteroperabilityTag
-        key_str = struct.pack(">H", key)
-        type_str = struct.pack(">H", TYPES.Long)
-        length_str = struct.pack(">I", 1)
-        interop_pointer = key_str + type_str + length_str + pointer_str
-    else:
-        interop_pointer = b""
+        exif_ifd[ExifIFD.InteroperabilityTag] = (
+            TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length)
+        exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
+    if global_parameters_is:
+        zeroth_ifd[ImageIFD.GlobalParametersIFD] = (
+            TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length +
+            interop_length + len(global_parameters_padding))
     if first_is:
         pointer_value = (TIFF_HEADER_LENGTH + zeroth_length +
-                         exif_length + gps_length + interop_length)
+                         exif_length + gps_length + interop_length +
+                         global_parameters_length)
         first_ifd_pointer = struct.pack(">L", pointer_value)
         thumbnail_pointer = (pointer_value + len(first_set[0]) + 24 +
                              4 + len(first_set[1]))
@@ -142,13 +147,155 @@ def dump(exif_dict_original):
     else:
         first_ifd_pointer = b"\x00\x00\x00\x00"
 
-    zeroth_bytes = (zeroth_set[0] + exif_pointer + gps_pointer +
-                    first_ifd_pointer + zeroth_set[1])
+    zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
+    zeroth_bytes = zeroth_set[0] + first_ifd_pointer + zeroth_set[1]
     if exif_is:
-        exif_bytes = exif_set[0] + interop_pointer + b"\x00" * 4 + exif_set[1]
+        exif_bytes = exif_set[0] + b"\x00" * 4 + exif_set[1]
 
     return (header + zeroth_bytes + exif_bytes + gps_bytes +
-            interop_bytes + first_bytes)
+            interop_bytes + global_parameters_bytes + first_bytes)
+
+
+def _collect_image_ifds(ifds):
+    """Flatten nested directories without recursively copying their topology."""
+    nodes, seen_chains, stack = {}, set(), [("Image", ifds)]
+    while stack:
+        kind, value = stack.pop()
+        if kind == "Image":
+            if not isinstance(value, list) or not value:
+                raise InvalidImageDataError("Image IFD chains must be nonempty lists.")
+            if id(value) in seen_chains:
+                continue
+            seen_chains.add(id(value))
+            chain = value
+        else:
+            chain = [value]
+        for index, node in enumerate(chain):
+            allowed = {"tags"} | {name for tag, name in _IFD_POINTERS.get(kind, ())}
+            if kind == "Image":
+                allowed.update(("subifds", "jpeg_data"))
+            if (not isinstance(node, dict) or not isinstance(node.get("tags"), dict) or
+                    set(node) - allowed):
+                raise InvalidImageDataError("Invalid {} IFD directory.".format(kind))
+            pointer = id(node)
+            following = id(chain[index + 1]) if index + 1 < len(chain) else 0
+            if pointer in nodes:
+                if nodes[pointer]["kind"] != kind:
+                    raise InvalidImageDataError("IFD referenced with incompatible types.")
+                if nodes[pointer]["next"] != following:
+                    raise InvalidImageDataError("Shared image IFD has conflicting successors.")
+                continue
+            children = node.get("subifds", [])
+            if (not isinstance(children, list) or
+                    any(not isinstance(child, list) or not child for child in children)):
+                raise InvalidImageDataError("SubIFD chains must be nonempty lists.")
+            links = {}
+            for tag, name in _IFD_POINTERS.get(kind, ()):
+                if name in node:
+                    links[name] = id(node[name])
+                    stack.append((name, node[name]))
+            nodes[pointer] = {"kind": kind, "tags": copy.deepcopy(node["tags"]),
+                              "next": following, "links": links,
+                              "subifds": tuple(id(child[0]) for child in children),
+                              "jpeg_data": node.get("jpeg_data")}
+            stack.extend(("Image", child) for child in children)
+    return id(ifds[0]), nodes
+
+
+def dump_ifds(ifds):
+    """Serialize the advanced directory list returned by load_ifds().
+
+    Image nodes contain "tags", optional "subifds" child chains, auxiliary
+    Exif/GPS/GlobalParameters nodes, and optional "jpeg_data" bytes. Interop
+    belongs inside Exif. Shared nodes are written once; conflicting chain
+    successors, incompatible node types and cycles are rejected.
+
+    JPEG data stays on its directory and is copied unchanged, without APP
+    removal or a thumbnail size limit. Missing/None jpeg_data clears 513/514
+    but retains the directory. No implicit directories are created. Structural
+    pointers are rebuilt; caller lists and dictionaries are not modified.
+
+    This returns Exif bytes, not a complete TIFF file. Unknown/private offsets,
+    pixel strips, tiles and external JPEG tables are not relocated or copied.
+    Output may exceed a JPEG APP1 segment's capacity. Use standard dump() to
+    write a conventional Exif thumbnail selected explicitly by the caller.
+
+    :param ifds: Nonempty primary IFD list with numeric tag IDs
+    :return: Exif bytes
+    :rtype: bytes
+    """
+    root, nodes = _collect_image_ifds(ifds)
+    active, visited, order = set(), set(), []
+    stack = [(root, False)]
+    while stack:
+        pointer, leaving = stack.pop()
+        if leaving:
+            active.remove(pointer)
+            continue
+        if pointer in active:
+            raise InvalidImageDataError("Cyclic IFD graph.")
+        if pointer in visited:
+            continue
+        visited.add(pointer)
+        active.add(pointer)
+        order.append(pointer)
+        node = nodes[pointer]
+        targets = list(node["subifds"])
+        targets.extend(node["links"][name] for tag, name in _IFD_POINTERS.get(node["kind"], ())
+                       if name in node["links"])
+        if node["next"]:
+            targets.append(node["next"])
+        stack.append((pointer, True))
+        stack.extend((target, False) for target in reversed(targets))
+
+    for node in nodes.values():
+        tags = node["tags"]
+        for tag, name in _IFD_POINTERS.get(node["kind"], ()):
+            tags.pop(tag, None)
+            if name in node["links"]:
+                tags[tag] = 1
+        if node["kind"] == "Image":
+            tags.pop(ImageIFD.SubIFDs, None)
+            if node["subifds"]:
+                tags[ImageIFD.SubIFDs] = (1,) * len(node["subifds"])
+            tags.pop(ImageIFD.JPEGInterchangeFormat, None)
+            tags.pop(ImageIFD.JPEGInterchangeFormatLength, None)
+            if node["jpeg_data"] is not None:
+                jpeg_data = node["jpeg_data"]
+                if not isinstance(jpeg_data, bytes):
+                    raise InvalidImageDataError("JPEG data must be bytes.")
+                try:
+                    split_into_segments(jpeg_data)
+                except struct.error:
+                    raise InvalidImageDataError("Invalid JPEG data.")
+                tags[ImageIFD.JPEGInterchangeFormat] = 1
+                tags[ImageIFD.JPEGInterchangeFormatLength] = len(jpeg_data)
+
+    offsets, offset = {}, TIFF_HEADER_LENGTH
+    for pointer in order:
+        node = nodes[pointer]
+        offsets[pointer] = offset
+        entries, values = _dict_to_bytes(node["tags"], node["kind"], offset - 8)
+        if node["jpeg_data"] is not None:
+            node["tags"][ImageIFD.JPEGInterchangeFormat] = offset + len(entries) + 4 + len(values)
+        size = len(entries) + 4 + len(values) + len(node["jpeg_data"] or b"")
+        offset += size + size % 2
+
+    blocks = []
+    for pointer in order:
+        node = nodes[pointer]
+        tags, current = node["tags"], offsets[pointer]
+        for tag, name in _IFD_POINTERS.get(node["kind"], ()):
+            if name in node["links"]:
+                tags[tag] = offsets[node["links"][name]]
+        if node["subifds"]:
+            tags[ImageIFD.SubIFDs] = tuple(offsets[child] for child in node["subifds"])
+        entries, values = _dict_to_bytes(tags, node["kind"], current - 8)
+        payload = node["jpeg_data"] or b""
+        following = offsets[node["next"]] if node["next"] else 0
+        block = entries + struct.pack(">L", following) + values + payload
+        blocks.append(block + b"\x00" * (len(block) % 2))
+    return b"Exif\x00\x00MM\x00\x2a\x00\x00\x00\x08" + b"".join(blocks)
 
 
 def _get_thumbnail(jpeg):
@@ -317,11 +464,7 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
     values = b""
 
     for n, key in enumerate(sorted(ifd_dict)):
-        if (ifd == "0th") and (key in (ImageIFD.ExifTag, ImageIFD.GPSTag)):
-            continue
-        elif (ifd == "Exif") and (key == ExifIFD.InteroperabilityTag):
-            continue
-        elif (ifd == "1st") and (key in (ImageIFD.JPEGInterchangeFormat, ImageIFD.JPEGInterchangeFormatLength)):
+        if (ifd == "1st") and (key in (ImageIFD.JPEGInterchangeFormat, ImageIFD.JPEGInterchangeFormatLength)):
             continue
 
         raw_value = ifd_dict[key]

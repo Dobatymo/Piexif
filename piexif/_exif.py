@@ -11,82 +11,100 @@ class TYPES:
     SRational = 10
     Float = 11
     DFloat = 12
+    Ifd = 13
+
+
+# TIFF 6.0
+TIFF_TAGS = {
+    254: {'name': 'NewSubfileType', 'type': TYPES.Long},
+    255: {'name': 'SubfileType', 'type': TYPES.Short},
+    256: {'name': 'ImageWidth', 'type': TYPES.Long},
+    257: {'name': 'ImageLength', 'type': TYPES.Long},
+    258: {'name': 'BitsPerSample', 'type': TYPES.Short},
+    259: {'name': 'Compression', 'type': TYPES.Short},
+    262: {'name': 'PhotometricInterpretation', 'type': TYPES.Short},
+    263: {'name': 'Threshholding', 'type': TYPES.Short},
+    264: {'name': 'CellWidth', 'type': TYPES.Short},
+    265: {'name': 'CellLength', 'type': TYPES.Short},
+    266: {'name': 'FillOrder', 'type': TYPES.Short},
+    269: {'name': 'DocumentName', 'type': TYPES.Ascii},
+    270: {'name': 'ImageDescription', 'type': TYPES.Ascii},
+    271: {'name': 'Make', 'type': TYPES.Ascii},
+    272: {'name': 'Model', 'type': TYPES.Ascii},
+    273: {'name': 'StripOffsets', 'type': TYPES.Long},
+    274: {'name': 'Orientation', 'type': TYPES.Short},
+    277: {'name': 'SamplesPerPixel', 'type': TYPES.Short},
+    278: {'name': 'RowsPerStrip', 'type': TYPES.Long},
+    279: {'name': 'StripByteCounts', 'type': TYPES.Long},
+    280: {'name': 'MinSampleValue', 'type': TYPES.Short},
+    281: {'name': 'MaxSampleValue', 'type': TYPES.Short},
+    282: {'name': 'XResolution', 'type': TYPES.Rational},
+    283: {'name': 'YResolution', 'type': TYPES.Rational},
+    284: {'name': 'PlanarConfiguration', 'type': TYPES.Short},
+    285: {'name': 'PageName', 'type': TYPES.Ascii},
+    286: {'name': 'XPosition', 'type': TYPES.Rational},
+    287: {'name': 'YPosition', 'type': TYPES.Rational},
+    288: {'name': 'FreeOffsets', 'type': TYPES.Long},
+    289: {'name': 'FreeByteCounts', 'type': TYPES.Long},
+    290: {'name': 'GrayResponseUnit', 'type': TYPES.Short},
+    291: {'name': 'GrayResponseCurve', 'type': TYPES.Short},
+    292: {'name': 'T4Options', 'type': TYPES.Long},
+    293: {'name': 'T6Options', 'type': TYPES.Long},
+    296: {'name': 'ResolutionUnit', 'type': TYPES.Short},
+    297: {'name': 'PageNumber', 'type': TYPES.Short},
+    301: {'name': 'TransferFunction', 'type': TYPES.Short},
+    305: {'name': 'Software', 'type': TYPES.Ascii},
+    306: {'name': 'DateTime', 'type': TYPES.Ascii},
+    315: {'name': 'Artist', 'type': TYPES.Ascii},
+    316: {'name': 'HostComputer', 'type': TYPES.Ascii},
+    317: {'name': 'Predictor', 'type': TYPES.Short},
+    318: {'name': 'WhitePoint', 'type': TYPES.Rational},
+    319: {'name': 'PrimaryChromaticities', 'type': TYPES.Rational},
+    320: {'name': 'ColorMap', 'type': TYPES.Short},
+    321: {'name': 'HalftoneHints', 'type': TYPES.Short},
+    322: {'name': 'TileWidth', 'type': TYPES.Short},
+    323: {'name': 'TileLength', 'type': TYPES.Short},
+    324: {'name': 'TileOffsets', 'type': TYPES.Short},
+    325: {'name': 'TileByteCounts', 'type': TYPES.Short},
+    332: {'name': 'InkSet', 'type': TYPES.Short},
+    333: {'name': 'InkNames', 'type': TYPES.Ascii},
+    334: {'name': 'NumberOfInks', 'type': TYPES.Short},
+    336: {'name': 'DotRange', 'type': TYPES.Byte},
+    337: {'name': 'TargetPrinter', 'type': TYPES.Ascii},
+    338: {'name': 'ExtraSamples', 'type': TYPES.Short},
+    339: {'name': 'SampleFormat', 'type': TYPES.Short},
+    340: {'name': 'SMinSampleValue', 'type': TYPES.Short},
+    341: {'name': 'SMaxSampleValue', 'type': TYPES.Short},
+    342: {'name': 'TransferRange', 'type': TYPES.Short},
+    512: {'name': 'JPEGProc', 'type': TYPES.Long},
+    513: {'name': 'JPEGInterchangeFormat', 'type': TYPES.Long},
+    514: {'name': 'JPEGInterchangeFormatLength', 'type': TYPES.Long},
+    515: {'name': 'JPEGRestartInterval', 'type': TYPES.Short},
+    517: {'name': 'JPEGLosslessPredictors', 'type': TYPES.Short},
+    518: {'name': 'JPEGPointTransforms', 'type': TYPES.Short},
+    519: {'name': 'JPEGQTables', 'type': TYPES.Long},
+    520: {'name': 'JPEGDCTables', 'type': TYPES.Long},
+    521: {'name': 'JPEGACTables', 'type': TYPES.Long},
+    529: {'name': 'YCbCrCoefficients', 'type': TYPES.Rational},
+    530: {'name': 'YCbCrSubSampling', 'type': TYPES.Short},
+    531: {'name': 'YCbCrPositioning', 'type': TYPES.Short},
+    532: {'name': 'ReferenceBlackWhite', 'type': TYPES.Rational},
+    33432: {'name': 'Copyright', 'type': TYPES.Ascii},
+}
 
 
 TAGS = {
     'Image': {11: {'name': 'ProcessingSoftware', 'type': TYPES.Ascii},
-               254: {'name': 'NewSubfileType', 'type': TYPES.Long},
-               255: {'name': 'SubfileType', 'type': TYPES.Short},
-               256: {'name': 'ImageWidth', 'type': TYPES.Long},
-               257: {'name': 'ImageLength', 'type': TYPES.Long},
-               258: {'name': 'BitsPerSample', 'type': TYPES.Short},
-               259: {'name': 'Compression', 'type': TYPES.Short},
-               262: {'name': 'PhotometricInterpretation', 'type': TYPES.Short},
-               263: {'name': 'Threshholding', 'type': TYPES.Short},
-               264: {'name': 'CellWidth', 'type': TYPES.Short},
-               265: {'name': 'CellLength', 'type': TYPES.Short},
-               266: {'name': 'FillOrder', 'type': TYPES.Short},
-               269: {'name': 'DocumentName', 'type': TYPES.Ascii},
-               270: {'name': 'ImageDescription', 'type': TYPES.Ascii},
-               271: {'name': 'Make', 'type': TYPES.Ascii},
-               272: {'name': 'Model', 'type': TYPES.Ascii},
-               273: {'name': 'StripOffsets', 'type': TYPES.Long},
-               274: {'name': 'Orientation', 'type': TYPES.Short},
-               277: {'name': 'SamplesPerPixel', 'type': TYPES.Short},
-               278: {'name': 'RowsPerStrip', 'type': TYPES.Long},
-               279: {'name': 'StripByteCounts', 'type': TYPES.Long},
-               282: {'name': 'XResolution', 'type': TYPES.Rational},
-               283: {'name': 'YResolution', 'type': TYPES.Rational},
-               284: {'name': 'PlanarConfiguration', 'type': TYPES.Short},
-               290: {'name': 'GrayResponseUnit', 'type': TYPES.Short},
-               291: {'name': 'GrayResponseCurve', 'type': TYPES.Short},
-               292: {'name': 'T4Options', 'type': TYPES.Long},
-               293: {'name': 'T6Options', 'type': TYPES.Long},
-               296: {'name': 'ResolutionUnit', 'type': TYPES.Short},
-               301: {'name': 'TransferFunction', 'type': TYPES.Short},
-               305: {'name': 'Software', 'type': TYPES.Ascii},
-               306: {'name': 'DateTime', 'type': TYPES.Ascii},
-               315: {'name': 'Artist', 'type': TYPES.Ascii},
-               316: {'name': 'HostComputer', 'type': TYPES.Ascii},
-               317: {'name': 'Predictor', 'type': TYPES.Short},
-               318: {'name': 'WhitePoint', 'type': TYPES.Rational},
-               319: {'name': 'PrimaryChromaticities', 'type': TYPES.Rational},
-               320: {'name': 'ColorMap', 'type': TYPES.Short},
-               321: {'name': 'HalftoneHints', 'type': TYPES.Short},
-               322: {'name': 'TileWidth', 'type': TYPES.Short},
-               323: {'name': 'TileLength', 'type': TYPES.Short},
-               324: {'name': 'TileOffsets', 'type': TYPES.Short},
-               325: {'name': 'TileByteCounts', 'type': TYPES.Short},
-               330: {'name': 'SubIFDs', 'type': TYPES.Long},
-               332: {'name': 'InkSet', 'type': TYPES.Short},
-               333: {'name': 'InkNames', 'type': TYPES.Ascii},
-               334: {'name': 'NumberOfInks', 'type': TYPES.Short},
-               336: {'name': 'DotRange', 'type': TYPES.Byte},
-               337: {'name': 'TargetPrinter', 'type': TYPES.Ascii},
-               338: {'name': 'ExtraSamples', 'type': TYPES.Short},
-               339: {'name': 'SampleFormat', 'type': TYPES.Short},
-               340: {'name': 'SMinSampleValue', 'type': TYPES.Short},
-               341: {'name': 'SMaxSampleValue', 'type': TYPES.Short},
-               342: {'name': 'TransferRange', 'type': TYPES.Short},
+               330: {'name': 'SubIFDs', 'type': TYPES.Long},  # TIFF Tech Note 1
                343: {'name': 'ClipPath', 'type': TYPES.Byte},
                344: {'name': 'XClipPathUnits', 'type': TYPES.Long},
                345: {'name': 'YClipPathUnits', 'type': TYPES.Long},
                346: {'name': 'Indexed', 'type': TYPES.Short},
                347: {'name': 'JPEGTables', 'type': TYPES.Undefined},
                351: {'name': 'OPIProxy', 'type': TYPES.Short},
-               512: {'name': 'JPEGProc', 'type': TYPES.Long},
-               513: {'name': 'JPEGInterchangeFormat', 'type': TYPES.Long},
-               514: {'name': 'JPEGInterchangeFormatLength', 'type': TYPES.Long},
-               515: {'name': 'JPEGRestartInterval', 'type': TYPES.Short},
-               517: {'name': 'JPEGLosslessPredictors', 'type': TYPES.Short},
-               518: {'name': 'JPEGPointTransforms', 'type': TYPES.Short},
-               519: {'name': 'JPEGQTables', 'type': TYPES.Long},
-               520: {'name': 'JPEGDCTables', 'type': TYPES.Long},
-               521: {'name': 'JPEGACTables', 'type': TYPES.Long},
-               529: {'name': 'YCbCrCoefficients', 'type': TYPES.Rational},
-               530: {'name': 'YCbCrSubSampling', 'type': TYPES.Short},
-               531: {'name': 'YCbCrPositioning', 'type': TYPES.Short},
-               532: {'name': 'ReferenceBlackWhite', 'type': TYPES.Rational},
+               400: {'name': 'GlobalParametersIFD', 'type': TYPES.Long}, # TIFF-FX
+               434: {'name': 'ImageBaseColor', 'type': TYPES.Short}, # TIFF-FX
+               559: {'name': 'StripRowCounts', 'type': TYPES.Long}, # TIFF-FX
                700: {'name': 'XMLPacket', 'type': TYPES.Byte},
                18246: {'name': 'Rating', 'type': TYPES.Short},
                18249: {'name': 'RatingPercent', 'type': TYPES.Short},
@@ -94,11 +112,11 @@ TAGS = {
                33421: {'name': 'CFARepeatPatternDim', 'type': TYPES.Short},
                33422: {'name': 'CFAPattern', 'type': TYPES.Byte},
                33423: {'name': 'BatteryLevel', 'type': TYPES.Rational},
-               33432: {'name': 'Copyright', 'type': TYPES.Ascii},
                33434: {'name': 'ExposureTime', 'type': TYPES.Rational},
                34377: {'name': 'ImageResources', 'type': TYPES.Byte},
                34665: {'name': 'ExifTag', 'type': TYPES.Long},
                34675: {'name': 'InterColorProfile', 'type': TYPES.Undefined},
+               34732: {'name': 'ImageLayer', 'type': TYPES.Long}, # TIFF-FX
                34853: {'name': 'GPSTag', 'type': TYPES.Long},
                34857: {'name': 'Interlace', 'type': TYPES.Short},
                34858: {'name': 'TimeZoneOffset', 'type': TYPES.SShort},
@@ -317,7 +335,16 @@ TAGS = {
                 30: {'name': 'GPSDifferential', 'type': TYPES.Short},
                 31: {'name': 'GPSHPositioningError', 'type': TYPES.Rational}},
     'Interop': {1: {'name': 'InteroperabilityIndex', 'type': TYPES.Ascii}},
+    # TIFF-FX
+    'GlobalParameters': {401: {'name': 'ProfileType', 'type': TYPES.Long},
+                         402: {'name': 'FaxProfile', 'type': TYPES.Byte},
+                         403: {'name': 'CodingMethods', 'type': TYPES.Long},
+                         404: {'name': 'VersionYear', 'type': TYPES.Byte},
+                         405: {'name': 'ModeNumber', 'type': TYPES.Byte}},
 }
+
+TAGS["Image"].update(TIFF_TAGS)
+TAGS["GlobalParameters"].update(TIFF_TAGS)
 
 TAGS["0th"] = TAGS["Image"]
 TAGS["1st"] = TAGS["Image"]
@@ -345,14 +372,22 @@ class ImageIFD:
     SamplesPerPixel = 277
     RowsPerStrip = 278
     StripByteCounts = 279
+    MinSampleValue = 280
+    MaxSampleValue = 281
     XResolution = 282
     YResolution = 283
     PlanarConfiguration = 284
+    PageName = 285
+    XPosition = 286
+    YPosition = 287
+    FreeOffsets = 288
+    FreeByteCounts = 289
     GrayResponseUnit = 290
     GrayResponseCurve = 291
     T4Options = 292
     T6Options = 293
     ResolutionUnit = 296
+    PageNumber = 297
     TransferFunction = 301
     Software = 305
     DateTime = 306
@@ -384,6 +419,13 @@ class ImageIFD:
     Indexed = 346
     JPEGTables = 347
     OPIProxy = 351
+    GlobalParametersIFD = 400
+    ProfileType = 401
+    FaxProfile = 402
+    CodingMethods = 403
+    VersionYear = 404
+    ModeNumber = 405
+    ImageBaseColor = 434
     JPEGProc = 512
     JPEGInterchangeFormat = 513
     JPEGInterchangeFormatLength = 514
@@ -397,6 +439,7 @@ class ImageIFD:
     YCbCrSubSampling = 530
     YCbCrPositioning = 531
     ReferenceBlackWhite = 532
+    StripRowCounts = 559
     XMLPacket = 700
     Rating = 18246
     RatingPercent = 18249
@@ -409,6 +452,7 @@ class ImageIFD:
     ImageResources = 34377
     ExifTag = 34665
     InterColorProfile = 34675
+    ImageLayer = 34732
     GPSTag = 34853
     Interlace = 34857
     TimeZoneOffset = 34858
@@ -640,3 +684,11 @@ class GPSIFD:
 class InteropIFD:
     """Exif tag number reference - Interoperability IFD"""
     InteroperabilityIndex = 1
+
+
+# Structural links used by the advanced nested-directory API.
+_IFD_POINTERS = {
+    "Image": ((ImageIFD.ExifTag, "Exif"), (ImageIFD.GPSTag, "GPS"),
+              (ImageIFD.GlobalParametersIFD, "GlobalParameters")),
+    "Exif": ((ExifIFD.InteroperabilityTag, "Interop"),),
+}

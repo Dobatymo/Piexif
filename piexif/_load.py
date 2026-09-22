@@ -1,9 +1,11 @@
+import numbers
 import struct
 import sys
 
 from ._common import *
 from ._exceptions import InvalidImageDataError
 from ._exif import *
+from ._exif import _IFD_POINTERS
 from piexif import _webp
 
 LITTLE_ENDIAN = b"\x49\x49"
@@ -13,15 +15,51 @@ def load(input_data, key_is_name=False):
     """
     py:function:: piexif.load(input_data, key_is_name=False)
 
-    Return exif data as dict. Keys(IFD name), be contained, are "0th", "Exif", "GPS", "Interop", "1st", and "thumbnail". Without "thumbnail", the value is dict(tag name/tag value). "thumbnail" value is JPEG as bytes.
+    Read JPEG, WebP, TIFF or Exif metadata from a filename or bytes.
+    The standard API returns 0th/Exif/GPS/Interop/1st dictionaries,
+    thumbnail bytes or None, and GlobalParameters when present.
+    Additional pages and SubIFDs are not traversed; use load_ifds() for the
+    advanced nested directory-list API.
 
-    :param input_data: JPEG, WebP, or TIFF filename, or JPEG, WebP, TIFF, or Exif bytes
-    :param bool key_is_name: If True, use tag names instead of numeric tag IDs
-        inside each IFD dictionary. Defaults to False. IFD names, values, and
-        thumbnail data are unchanged. Keep False when passing the result to dump().
-    :return: Exif data({"0th":dict, "Exif":dict, "GPS":dict, "Interop":dict, "1st":dict, "thumbnail":bytes})
+    :param input_data: JPEG, WebP, TIFF filename or image/Exif bytes
+    :param bool key_is_name: Use tag names instead of numeric IDs. dump()
+        requires numeric IDs.
+    :return: Standard metadata dictionary
     :rtype: dict
     """
+    return _load(input_data, key_is_name, False)
+
+
+def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
+    """
+    py:function:: piexif.load_ifds(input_data, key_is_name=False, load_jpeg_data=False)
+
+    The advanced API reads metadata as a nonempty list of primary directories.
+    Each image directory has "tags" and "subifds" (a list of child chains).
+    Exif, GPS and GlobalParameters nodes belong to their image directory;
+    Interop belongs to its Exif node. Auxiliary nodes also contain "tags".
+    With load_jpeg_data=True, JPEGInterchangeFormat streams are returned as
+    "jpeg_data" bytes on their image directories, not necessarily thumbnails.
+    Shared directories use the same dictionary object. Structural pointer
+    tags are replaced by these relationships and rebuilt by dump_ifds().
+    JPEG offset/length tags (513/514) are omitted even when data is not loaded.
+    An image without EXIF returns [{"tags": {}, "subifds": []}].
+
+    :param input_data: JPEG, WebP, TIFF filename or image/Exif bytes
+    :param bool key_is_name: Use tag names instead of numeric IDs. dump_ifds()
+        requires numeric IDs. Directory structure and sharing are unchanged.
+    :param bool load_jpeg_data: Extract JPEGInterchangeFormat payloads from
+        all image directories. Defaults to False; does not limit file I/O.
+    :return: Nested directory list, accepted directly by dump_ifds()
+    :rtype: list
+
+    Unknown tags and pixel data other than opted-in JPEG streams are not returned.
+    This is not a lossless TIFF file reader or pixel-offset relocator.
+    """
+    return _load(input_data, key_is_name, True, load_jpeg_data)
+
+
+def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False):
     exif_dict = {"0th":{},
                  "Exif":{},
                  "GPS":{},
@@ -30,6 +68,8 @@ def load(input_data, key_is_name=False):
                  "thumbnail":None}
     exifReader = _ExifReader(input_data)
     if exifReader.tiftag is None:
+        if full_ifds:
+            return [{"tags": {}, "subifds": []}]
         return exif_dict
 
     if exifReader.tiftag[0:2] == LITTLE_ENDIAN:
@@ -39,34 +79,123 @@ def load(input_data, key_is_name=False):
 
     pointer = struct.unpack(exifReader.endian_mark + "L",
                             exifReader.tiftag[4:8])[0]
-    exif_dict["0th"] = exifReader.get_ifd_dict(pointer, "0th")
-    first_ifd_pointer = exif_dict["0th"].pop("first_ifd_pointer")
-    if ImageIFD.ExifTag in exif_dict["0th"]:
-        pointer = exif_dict["0th"][ImageIFD.ExifTag]
+    if full_ifds:
+        return exifReader.get_image_ifds(pointer, key_is_name, load_jpeg_data)
+    zeroth_ifd = exifReader.get_ifd_dict(pointer, "0th")
+    first_ifd_pointer = zeroth_ifd.pop("first_ifd_pointer")
+    first_ifd = {}
+    if first_ifd_pointer != b"\x00\x00\x00\x00":
+        pointer = struct.unpack(exifReader.endian_mark + "L", first_ifd_pointer)[0]
+        first_ifd = exifReader.get_ifd_dict(pointer, "1st")
+    exif_dict["0th"] = zeroth_ifd
+    exif_dict["1st"] = first_ifd
+    if ImageIFD.ExifTag in zeroth_ifd:
+        pointer = zeroth_ifd[ImageIFD.ExifTag]
         exif_dict["Exif"] = exifReader.get_ifd_dict(pointer, "Exif")
-    if ImageIFD.GPSTag in exif_dict["0th"]:
-        pointer = exif_dict["0th"][ImageIFD.GPSTag]
+    if ImageIFD.GPSTag in zeroth_ifd:
+        pointer = zeroth_ifd[ImageIFD.GPSTag]
         exif_dict["GPS"] = exifReader.get_ifd_dict(pointer, "GPS")
+    if ImageIFD.GlobalParametersIFD in zeroth_ifd:
+        pointer = zeroth_ifd[ImageIFD.GlobalParametersIFD]
+        exif_dict["GlobalParameters"] = exifReader.get_ifd_dict(pointer, "GlobalParameters")
     if ExifIFD.InteroperabilityTag in exif_dict["Exif"]:
         pointer = exif_dict["Exif"][ExifIFD.InteroperabilityTag]
         exif_dict["Interop"] = exifReader.get_ifd_dict(pointer, "Interop")
-    if first_ifd_pointer != b"\x00\x00\x00\x00":
-        pointer = struct.unpack(exifReader.endian_mark + "L",
-                                first_ifd_pointer)[0]
-        exif_dict["1st"] = exifReader.get_ifd_dict(pointer, "1st")
-        if (ImageIFD.JPEGInterchangeFormat in exif_dict["1st"] and
-            ImageIFD.JPEGInterchangeFormatLength in exif_dict["1st"]):
-            end = (exif_dict["1st"][ImageIFD.JPEGInterchangeFormat] +
-                   exif_dict["1st"][ImageIFD.JPEGInterchangeFormatLength])
-            thumb = exifReader.tiftag[exif_dict["1st"][ImageIFD.JPEGInterchangeFormat]:end]
-            exif_dict["thumbnail"] = thumb
-
+    if (ImageIFD.JPEGInterchangeFormat in first_ifd and
+            ImageIFD.JPEGInterchangeFormatLength in first_ifd):
+        start = first_ifd[ImageIFD.JPEGInterchangeFormat]
+        end = start + first_ifd[ImageIFD.JPEGInterchangeFormatLength]
+        exif_dict["thumbnail"] = exifReader.tiftag[start:end]
     if key_is_name:
         exif_dict = _get_key_name_dict(exif_dict)
     return exif_dict
 
 
 class _ExifReader(object):
+    def get_image_ifds(self, root, key_is_name=False, load_jpeg_data=False):
+        nodes, active = {}, set()
+        stack = [(root, "Image", False)]
+        while stack:
+            pointer, kind, leaving = stack.pop()
+            if leaving:
+                active.remove(pointer)
+                continue
+            if not isinstance(pointer, numbers.Integral) or pointer < 8:
+                raise InvalidImageDataError("Invalid IFD offset.")
+            if pointer in active:
+                raise InvalidImageDataError("Cyclic IFD graph.")
+            if pointer in nodes:
+                if nodes[pointer]["kind"] != kind:
+                    raise InvalidImageDataError("IFD referenced with incompatible types.")
+                continue
+            tags = self.get_ifd_dict(pointer, kind)
+            links = {}
+            for tag, name in _IFD_POINTERS.get(kind, ()):
+                if tag in tags:
+                    links[name] = tags.pop(tag)
+            following, children = 0, ()
+            if kind == "Image":
+                count = struct.unpack_from(self.endian_mark + "H", self.tiftag, pointer)[0]
+                end = pointer + 2 + count * 12
+                if end + 4 > len(self.tiftag):
+                    raise InvalidImageDataError("Invalid image IFD size.")
+                following = struct.unpack_from(self.endian_mark + "L", self.tiftag, end)[0]
+                if ImageIFD.SubIFDs in tags:
+                    children = tags.pop(ImageIFD.SubIFDs)
+                    if not isinstance(children, tuple):
+                        children = (children,)
+                    if not children or any(not p for p in children):
+                        raise InvalidImageDataError("Invalid SubIFDs offset.")
+                    for index in range(count):
+                        tag, value_type = struct.unpack_from(
+                            self.endian_mark + "HH", self.tiftag, pointer + 2 + index * 12)
+                        if tag == ImageIFD.SubIFDs and value_type not in (TYPES.Long, TYPES.Ifd):
+                            raise InvalidImageDataError("Invalid SubIFDs pointer type.")
+            node = {"tags": tags}
+            if kind == "Image":
+                node["subifds"] = []
+                start = tags.pop(ImageIFD.JPEGInterchangeFormat, None)
+                length = tags.pop(ImageIFD.JPEGInterchangeFormatLength, None)
+                if load_jpeg_data and start not in (None, 0) and length is not None:
+                    if (not isinstance(start, numbers.Integral) or not isinstance(length, numbers.Integral) or
+                            start < 8 or length < 0 or start + length > len(self.tiftag)):
+                        raise InvalidImageDataError("Invalid JPEG data offset or length.")
+                    node["jpeg_data"] = self.tiftag[start:start + length]
+            nodes[pointer] = {"kind": kind, "node": node, "next": following,
+                              "subifds": children, "links": links}
+            active.add(pointer)
+            stack.append((pointer, kind, True))
+            targets = [(child, "Image") for child in children]
+            targets.extend((target, name) for name, target in links.items())
+            if following:
+                targets.append((following, "Image"))
+            for target, target_kind in reversed(targets):
+                stack.append((target, target_kind, False))
+
+        chains = {}
+
+        def chain(pointer):
+            if pointer not in chains:
+                result = []
+                chains[pointer] = result
+                while pointer:
+                    result.append(nodes[pointer]["node"])
+                    pointer = nodes[pointer]["next"]
+            else:
+                result = chains[pointer]
+            return result
+
+        for entry in nodes.values():
+            node = entry["node"]
+            if entry["kind"] == "Image":
+                node["subifds"] = [chain(child) for child in entry["subifds"]]
+            for name, target in entry["links"].items():
+                node[name] = nodes[target]["node"]
+            if key_is_name:
+                node["tags"] = {TAGS[entry["kind"]][tag]["name"]: value
+                                for tag, value in node["tags"].items()}
+        return chain(root)
+
     def __init__(self, data):
         # Prevents "UnicodeWarning: Unicode equal comparison failed" warnings on Python 2
         maybe_image = sys.version_info >= (3,0,0) or isinstance(data, str)
@@ -125,7 +254,6 @@ class _ExifReader(object):
             t = "Image"
         else:
             t = ifd_name
-        p_and_value = []
         for x in range(tag_count):
             pointer = offset + 12 * x
             tag = struct.unpack(self.endian_mark + "H",
@@ -136,7 +264,6 @@ class _ExifReader(object):
                                       self.tiftag[pointer + 4: pointer + 8]
                                       )[0]
             value = self.tiftag[pointer+8: pointer+12]
-            p_and_value.append((pointer, value_type, value_num, value))
             v_set = (value_type, value_num, value, tag)
             if tag in TAGS[t]:
                 ifd_dict[tag] = self.convert_value(v_set)
@@ -158,7 +285,7 @@ class _ExifReader(object):
 
         type_size = {
             TYPES.Byte: 1, TYPES.Ascii: 1, TYPES.Short: 2,
-            TYPES.Long: 4, TYPES.Rational: 8, TYPES.SByte: 1,
+            TYPES.Long: 4, TYPES.Ifd: 4, TYPES.Rational: 8, TYPES.SByte: 1,
             TYPES.Undefined: 1, TYPES.SShort: 2, TYPES.SLong: 4,
             TYPES.SRational: 8, TYPES.Float: 4, TYPES.DFloat: 8,
         }.get(t)
@@ -196,7 +323,7 @@ class _ExifReader(object):
             else:
                 data = struct.unpack(self.endian_mark + "H" * length,
                                      value[0:length * 2])
-        elif t == TYPES.Long: # LONG
+        elif t in (TYPES.Long, TYPES.Ifd): # LONG or IFD offset
             if length > 1:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
                 data = struct.unpack(self.endian_mark + "L" * length,
@@ -291,12 +418,9 @@ class _ExifReader(object):
 
 
 def _get_key_name_dict(exif_dict):
-    new_dict = {
-        "0th":{TAGS["Image"][n]["name"]:value for n, value in exif_dict["0th"].items()},
-        "Exif":{TAGS["Exif"][n]["name"]:value for n, value in exif_dict["Exif"].items()},
-        "1st":{TAGS["Image"][n]["name"]:value for n, value in exif_dict["1st"].items()},
-        "GPS":{TAGS["GPS"][n]["name"]:value for n, value in exif_dict["GPS"].items()},
-        "Interop":{TAGS["Interop"][n]["name"]:value for n, value in exif_dict["Interop"].items()},
-        "thumbnail":exif_dict["thumbnail"],
-    }
+    new_dict = {"thumbnail": exif_dict["thumbnail"]}
+    for name in ("0th", "Exif", "1st", "GPS", "Interop", "GlobalParameters"):
+        if name in exif_dict:
+            new_dict[name] = {TAGS[name][tag]["name"]: value
+                              for tag, value in exif_dict[name].items()}
     return new_dict

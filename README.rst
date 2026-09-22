@@ -34,13 +34,18 @@ Why Choose Piexif
 How to Use
 ----------
 
-There are only just five functions.
+The standard API provides five functions.
 
 - *load(filename)* - Get exif data as *dict*.
 - *dump(exif_dict)* - Get exif as *bytes*.
 - *insert(exif_bytes, filename)* - Insert exif into JPEG, or WebP.
 - *remove(filename)* - Remove exif from JPEG, or WebP.
 - *transplant(filename, filename)* - Transplant exif from JPEG to JPEG.
+
+The advanced API supports nested directory lists:
+
+- *load_ifds(input_data, key_is_name=False, load_jpeg_data=False)* - Read directory metadata, optionally including JPEG streams.
+- *dump_ifds(ifds)* - Serialize directory lists and attached JPEG streams to Exif bytes.
 
 Preservation
 ------------
