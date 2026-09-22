@@ -137,6 +137,21 @@
   Python's exact conversion of a binary float to `Fraction` can produce
   oversized components even for a small numeric value.
 
+## Test comparisons fail with Pillow 7.2
+
+- Upstream: [hMatoba/Piexif#108](https://github.com/hMatoba/Piexif/issues/108).
+- Status: already fixed in this fork by commit `60f80bf`.
+- Pillow 7.2 represents rational fields as IFDRational objects rather than
+  numerator/denominator tuples. The former comparison helper treated the
+  tuple as BYTE data and attempted to pack its components into unsigned
+  bytes, raising struct.error for components above 255.
+- The current helper compares rational values numerically using the tag's
+  type. This is a test compatibility issue, not corrupted Exif output.
+- Verified with Pillow 7.2.0 on Python 3.8: all 135 tests pass. The former
+  helper reproduces the reported byte-packing error for the same rational
+  value; the current helper accepts it.
+- No additional runtime or test changes are required.
+
 ## Interop without Exif raises KeyError during dump
 
 - Upstream: [hMatoba/Piexif#114](https://github.com/hMatoba/Piexif/issues/114).
