@@ -62,6 +62,22 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Demo returns a server error for an uploaded image
+
+- Upstream: [hMatoba/Piexif#87](https://github.com/hMatoba/Piexif/issues/87).
+- Status: not reproduced in this fork; original demo cause unverified.
+- The report contains an image and an HTTP 500 response, but no traceback,
+  demo source, or deployed library version.
+- The [original image](https://user-images.githubusercontent.com/10159285/55862183-3aab0380-5b78-11e9-8981-279617029d77.jpg)
+  loads with both standard and advanced APIs, including named-tag output
+  and Pillow-extracted Exif input.
+- Standard dump/load and JPEG insertion succeed. Thumbnail normalization
+  preserves thumbnail pixels, and insertion preserves the main image pixels.
+  Advanced loading with JPEG data enabled also round-trips successfully.
+- No runtime fix is justified by the available reproduction. Reassessment
+  requires the original demo traceback or a failing library-level example.
+- The sample was evaluated in memory; no fixture was added.
+
 ## Make and other ASCII fields lose their final character
 
 - Upstream: [hMatoba/Piexif#89](https://github.com/hMatoba/Piexif/issues/89).
