@@ -37,17 +37,21 @@ class LoadValidationTests(unittest.TestCase):
             load(data)
         self.assertEqual(str(caught.exception), "Exif value exceeds the image data.")
 
-    def check_ascii_value(self, payload, expected, trailing=b""):
+    def check_ascii_value(self, payload, expected, trailing=b"", tag=270):
         for endian, marker in (("<", b"II"), (">", b"MM")):
             value = (payload.ljust(4, b"X") if len(payload) <= 4
                      else struct.pack(endian + "I", 26))
             data = marker + struct.pack(endian + "HIH", 42, 8, 1)
-            data += struct.pack(endian + "HHI4s", 270, 2, len(payload), value)
+            data += struct.pack(endian + "HHI4s", tag, 2, len(payload), value)
             data += b"\x00" * 4
             if len(payload) > 4:
                 data += payload
             data += trailing
-            self.assertEqual(load(data)["0th"][270], expected)
+            self.assertEqual(load(data)["0th"][tag], expected)
+
+    def test_make_preserves_final_character(self):
+        for payload in (b"Apple", b"Apple\x00"):
+            self.check_ascii_value(payload, b"Apple", b"unrelated\x00", tag=271)
 
     def test_ascii_without_terminator_inline(self):
         for payload in (b"A", b"AB", b"ABC", b"ABCD"):

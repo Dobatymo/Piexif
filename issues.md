@@ -62,6 +62,16 @@
   while the DNG specification permits both `SHORT` and `RATIONAL` values.
   Rational DNG values now round-trip correctly.
 
+## Make and other ASCII fields lose their final character
+
+- Upstream: [hMatoba/Piexif#89](https://github.com/hMatoba/Piexif/issues/89).
+- Status: reported truncation mechanism already fixed by #134; original file unverified.
+- The old reader always discarded the final declared ASCII byte. A `Make`
+  value containing `Apple` without a terminating NUL therefore became `Appl`.
+  Loading now removes only an actual trailing NUL and stays within the declared
+  count. Both terminated and unterminated `Apple` values retain all five letters.
+- No sample image was supplied to confirm the original file's stored bytes.
+
 ## Integer SceneType cannot be dumped
 
 - Upstream: [hMatoba/Piexif#95](https://github.com/hMatoba/Piexif/issues/95).
