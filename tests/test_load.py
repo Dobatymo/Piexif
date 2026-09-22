@@ -6,17 +6,33 @@ import piexif
 
 from piexif._exceptions import InvalidImageDataError
 from piexif._dump import dump
-from piexif._load import _ExifReader, load, load_ifds
+from piexif._load import _ExifReader, load, load_bytes, load_file, load_ifds
 
 
 class LoadValidationTests(unittest.TestCase):
     def test_public_loader_entry_points(self):
         data = self.mrc_data(">", b"MM")
         self.assertIs(piexif.load, load)
+        self.assertIs(piexif.load_bytes, load_bytes)
+        self.assertIs(piexif.load_file, load_file)
         self.assertIs(piexif.load_ifds, load_ifds)
         self.assertIsInstance(load(data), dict)
         self.assertIsInstance(load_ifds(data), list)
         self.assertEqual(load_ifds(data, True), load_ifds(data, key_is_name=True))
+
+    def test_load_bytes_rejects_unrecognized_bytes(self):
+        with self.assertRaises(InvalidImageDataError):
+            load_bytes(b"not a filename")
+
+    def test_load_file_reads_a_filename(self):
+        data = self.mrc_data(">", b"MM")
+        path = self._testMethodName + ".tif"
+        with open(path, "wb") as output:
+            output.write(data)
+        try:
+            self.assertEqual(load_file(path), load_bytes(data))
+        finally:
+            os.remove(path)
 
     def mrc_data(self, endian, marker, kind=4, following=76):
         data = marker + struct.pack(endian + "HIH", 42, 8, 2)

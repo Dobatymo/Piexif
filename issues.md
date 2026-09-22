@@ -54,6 +54,20 @@
   feature, allowing `load()` results to round-trip despite incorrect stored
   tag types. See [possible features](features.md#round-trip-nonconforming-camera-metadata).
 
+## Binary input can be interpreted as a filename
+
+- Upstream: [hMatoba/Piexif#85](https://github.com/hMatoba/Piexif/issues/85) /
+  [#124](https://github.com/hMatoba/Piexif/issues/124).
+- Status: partially addressed; the historical `load()` behavior remains for
+  backward compatibility.
+- `load_bytes()` now always treats its argument as in-memory JPEG, WebP, TIFF,
+  or Exif data and never opens it as a path. `load_file()` explicitly selects
+  filesystem input. `remove_bytes()` and `remove_file()` provide the same
+  explicit split for metadata removal. New code handling untrusted bytes
+  should use `load_bytes()` or `remove_bytes()`.
+- A complete fix to `load()` requires a future compatibility-breaking change,
+  especially on Python 2.7 where bytes and str are the same type.
+
 ## `AsShotNeutral` rational values cannot be dumped
 
 - Upstream: [hMatoba/Piexif#86](https://github.com/hMatoba/Piexif/issues/86).

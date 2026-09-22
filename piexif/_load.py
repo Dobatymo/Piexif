@@ -3,12 +3,17 @@ import struct
 import sys
 
 from ._common import *
+from ._common import _is_image_data
 from ._exceptions import InvalidImageDataError
 from ._exif import *
 from ._exif import _IFD_POINTERS
 from piexif import _webp
 
 LITTLE_ENDIAN = b"\x49\x49"
+try:
+    STRING_TYPES = (basestring,)
+except NameError:
+    STRING_TYPES = (str,)
 
 
 def load(input_data, key_is_name=False):
@@ -27,7 +32,27 @@ def load(input_data, key_is_name=False):
     :return: Standard metadata dictionary
     :rtype: dict
     """
-    return _load(input_data, key_is_name, False)
+    if isinstance(input_data, bytes) and _is_image_data(input_data):
+        return load_bytes(input_data, key_is_name)
+    return load_file(input_data, key_is_name)
+
+
+def load_bytes(data, key_is_name=False):
+    """Read metadata from complete image or Exif bytes.
+
+    Unlike ``load()``, this function never treats the byte string as a
+    filename. Use it for untrusted or in-memory input.
+    """
+    if not isinstance(data, bytes):
+        raise TypeError("load_bytes() requires bytes.")
+    return _load(data, key_is_name, False, False, True)
+
+
+def load_file(filename, key_is_name=False):
+    """Read metadata from a filename; never interpret its value as image data."""
+    if not isinstance(filename, STRING_TYPES + (bytes,)):
+        raise TypeError("load_file() requires a filename.")
+    return _load(filename, key_is_name, False)
 
 
 def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
@@ -59,14 +84,15 @@ def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
     return _load(input_data, key_is_name, True, load_jpeg_data)
 
 
-def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False):
+def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False,
+          data_is_bytes=False):
     exif_dict = {"0th":{},
                  "Exif":{},
                  "GPS":{},
                  "Interop":{},
                  "1st":{},
                  "thumbnail":None}
-    exifReader = _ExifReader(input_data)
+    exifReader = _ExifReader(input_data, data_is_bytes)
     if exifReader.tiftag is None:
         if full_ifds:
             return [{"tags": {}, "subifds": []}]
@@ -196,23 +222,26 @@ class _ExifReader(object):
                                 for tag, value in node["tags"].items()}
         return chain(root)
 
-    def __init__(self, data):
+    def __init__(self, data, data_is_bytes=False):
         # Prevents "UnicodeWarning: Unicode equal comparison failed" warnings on Python 2
         maybe_image = sys.version_info >= (3,0,0) or isinstance(data, str)
 
-        if maybe_image and data[0:2] == b"\xff\xd8":  # JPEG
-            segments = split_into_segments(data)
-            app1 = get_exif_seg(segments)
-            if app1:
-                self.tiftag = app1[10:]
-            else:
-                self.tiftag = None
-        elif maybe_image and data[0:2] in (b"\x49\x49", b"\x4d\x4d"):  # TIFF
+        data_type = _is_image_data(data) if maybe_image else None
+        if data_type == "jpeg":
+                segments = split_into_segments(data)
+                app1 = get_exif_seg(segments)
+                if app1:
+                    self.tiftag = app1[10:]
+                else:
+                    self.tiftag = None
+        elif data_type == "tiff":
             self.tiftag = data
-        elif maybe_image and data[0:4] == b"RIFF" and data[8:12] == b"WEBP":
+        elif data_type == "webp":
             self.tiftag = _webp.get_exif(data)
-        elif maybe_image and data[0:4] == b"Exif":  # Exif
+        elif data_type == "exif":
             self.tiftag = data[6:]
+        elif data_is_bytes:
+            raise InvalidImageDataError("Given data is neither JPEG nor TIFF.")
         else:
             with open(data, 'rb') as f:
                 magic_number = f.read(2)

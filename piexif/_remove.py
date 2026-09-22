@@ -1,6 +1,7 @@
 import io
 
 from ._common import *
+from ._common import _is_image_data
 from piexif import _webp
 
 def remove(src, new_file=None):
@@ -11,21 +12,30 @@ def remove(src, new_file=None):
 
     :param str filename: JPEG
     """
-    output_is_file = False
-    if src[0:2] == b"\xff\xd8":
+    if _is_image_data(src):
+        return _remove(src, new_file, False)
+    return _remove(src, new_file, True)
+
+
+def remove_bytes(data, new_file=None):
+    """Remove metadata from in-memory JPEG or WebP bytes without opening them."""
+    if not isinstance(data, bytes) or not _is_image_data(data):
+        raise ValueError("Given data is neither JPEG nor WebP.")
+    return _remove(data, new_file, False)
+
+
+def remove_file(filename, new_file=None):
+    """Remove metadata from a filename; the input is always treated as a path."""
+    return _remove(filename, new_file, True)
+
+
+def _remove(src, new_file, output_is_file):
+    if not output_is_file:
         src_data = src
-        file_type = "jpeg"
-    elif src[0:4] == b"RIFF" and src[8:12] == b"WEBP":
-        src_data = src
-        file_type = "webp"
     else:
         with open(src, 'rb') as f:
             src_data = f.read()
-        output_is_file = True
-        if src_data[0:2] == b"\xff\xd8":
-            file_type = "jpeg"
-        elif src_data[0:4] == b"RIFF" and src_data[8:12] == b"WEBP":
-            file_type = "webp"
+    file_type = _is_image_data(src_data)
 
     if file_type == "jpeg":
         segments = split_into_segments(src_data)

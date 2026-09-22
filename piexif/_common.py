@@ -3,6 +3,18 @@ import struct
 from ._exceptions import InvalidImageDataError
 
 
+def _is_image_data(data):
+    if data[0:2] == b"\xff\xd8":
+        return "jpeg"
+    if data[0:2] in (b"\x49\x49", b"\x4d\x4d"):
+        return "tiff"
+    if data[0:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    if data[0:4] == b"Exif":
+        return "exif"
+    return None
+
+
 def split_into_segments(data):
     """Slices JPEG meta data into a list from JPEG binary data.
     """

@@ -28,6 +28,24 @@ load
    :return: Standard metadata dictionary.
    :rtype: dict
 
+load_bytes
+----------
+.. py:function:: piexif.load_bytes(data, key_is_name=False)
+
+   Reads JPEG, WebP, TIFF, or Exif bytes. The argument is always treated as
+   in-memory data and is never opened as a filename. Use this function when
+   processing untrusted input.
+
+load_file
+---------
+.. py:function:: piexif.load_file(filename, key_is_name=False)
+
+   Reads metadata from a filename. The argument is always treated as a path.
+
+``load()`` remains backward compatible with its historical auto-detection,
+including ambiguous byte strings. New code should use ``load_bytes()`` for
+in-memory data and ``load_file()`` for paths.
+
 ::
 
     exif_dict = piexif.load("foo.jpg")
@@ -297,6 +315,11 @@ remove
 
    :param bytes data: JPEG or WebP data
    :param io.BytesIO output: output data
+
+``remove_bytes(data, output)`` is the explicit safe byte-input form and never
+opens ``data`` as a filename. ``remove_file(filename, output=None)`` is the
+explicit filesystem form. ``remove()`` retains its historical auto-detection;
+use the explicit functions for untrusted input.
 
 transplant
 ----------
