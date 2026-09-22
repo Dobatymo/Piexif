@@ -122,6 +122,25 @@
   returns `None` for these files, and `load()` returns empty metadata for
   both byte and filename inputs, consistently with JPEG without EXIF.
 
+## TIFF saving fails in Pillow's libtiff encoder
+
+- Upstream: [hMatoba/Piexif#102](https://github.com/hMatoba/Piexif/issues/102).
+- Status: original cause unverified; related Pillow/libtiff failure reproduced.
+- The report contains only a Pillow libtiff_encoder traceback, without code,
+  an input image, compression settings, or dependency versions.
+- With Pillow 12.3.0, a generated RGB image saves successfully to an
+  uncompressed TIFF using Piexif metadata with a nested Exif directory.
+  LZW-compressed saving fails with RuntimeError: Error setting from dictionary.
+- The same LZW failure occurs with metadata bytes generated entirely by
+  Pillow's Image.Exif.tobytes(), without using Piexif serialization. Root-only
+  metadata succeeds. This isolates the related failure to Pillow/libtiff's
+  handling of nested Exif during compressed TIFF saving, not Piexif output.
+- This does not establish the cause of the original SystemError. Its exact
+  reproduction requires the missing input, code, and dependency versions.
+- Piexif insert() supports JPEG and WebP, not complete TIFF rewriting.
+  No Piexif runtime change is justified by the available evidence.
+- All checks used generated images and in-memory buffers; no fixture was added.
+
 ## Large Fraction components overflow GPS RATIONAL fields
 
 - Upstream: [hMatoba/Piexif#106](https://github.com/hMatoba/Piexif/issues/106).
