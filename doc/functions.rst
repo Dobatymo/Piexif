@@ -125,6 +125,9 @@ ExifTag (34665), GPSTag (34853) and GlobalParametersIFD (400) in the root image
 directory (``0th``), and
 InteroperabilityTag (40965) in ``Exif``. Pointers are rebuilt for the IFDs being
 written; callers do not need to calculate their offsets.
+The standard writer pads directory blocks so every IFD starts at an even
+TIFF-relative offset. Padding may change serialized bytes without changing
+metadata values.
 
 The ``thumbnail`` value is JPEG bytes or ``None``. Supplying JPEG bytes adds or
 replaces the thumbnail only when a ``1st`` dictionary is also supplied.

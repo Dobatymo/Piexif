@@ -12,6 +12,57 @@ class DumpValidationTests(unittest.TestCase):
     thumbnail = (b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00"
                  b"\xff\xd9")
 
+    def test_all_standard_ifds_are_word_aligned(self):
+        thumbnail = self.thumbnail
+        for length in (4, 5):
+            for mask in range(32):
+                source = {"0th": {ImageIFD.Make: b"x" * length}}
+                options = (("Exif", {ExifIFD.DateTimeOriginal: b"x" * length}),
+                           ("GPS", {GPSIFD.GPSMapDatum: b"x" * length}),
+                           ("Interop", {InteropIFD.InteroperabilityIndex: b"x" * length}),
+                           ("GlobalParameters", {ImageIFD.Software: b"x" * length}))
+                for index, (name, tags) in enumerate(options):
+                    if mask & (1 << index):
+                        source[name] = tags
+                if mask & 16:
+                    source.update({"1st": {ImageIFD.Make: b"x" * length},
+                                   "thumbnail": thumbnail})
+                before = copy.deepcopy(source)
+                encoded = dump(source)
+                raw = encoded[6:]
+                stack, seen = [8], set()
+                while stack:
+                    pointer = stack.pop()
+                    self.assertEqual(pointer % 2, 0, (length, mask, pointer))
+                    self.assertNotIn(pointer, seen)
+                    seen.add(pointer)
+                    count = struct.unpack_from(">H", raw, pointer)[0]
+                    fields = {}
+                    for index in range(count):
+                        tag, kind, size, value = struct.unpack_from(
+                            ">HHII", raw, pointer + 2 + index * 12)
+                        fields[tag] = value
+                        if tag in (ImageIFD.GlobalParametersIFD, ImageIFD.ExifTag,
+                                   ImageIFD.GPSTag, ExifIFD.InteroperabilityTag):
+                            self.assertEqual((kind, size), (4, 1))
+                            stack.append(value)
+                    following = struct.unpack_from(">I", raw, pointer + 2 + count * 12)[0]
+                    if following:
+                        stack.append(following)
+                    if ImageIFD.JPEGInterchangeFormat in fields:
+                        start = fields[ImageIFD.JPEGInterchangeFormat]
+                        size = fields[ImageIFD.JPEGInterchangeFormatLength]
+                        self.assertEqual(raw[start:start + size], thumbnail)
+                result = load(encoded)
+                for name, tags in source.items():
+                    if name == "thumbnail":
+                        self.assertEqual(result[name], tags)
+                    else:
+                        for tag, value in tags.items():
+                            self.assertEqual(result[name][tag], value)
+                self.assertEqual(source, before)
+                self.assertEqual(dump(result), encoded)
+
     def test_jpeg_thumbnail_lifecycle(self):
         thumbnail = self.thumbnail
         replacement = thumbnail[:2] + b"\xff\xfe\x00\x09changed" + thumbnail[2:]

@@ -75,16 +75,19 @@ def dump(exif_dict_original):
 
     zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
     zeroth_length = len(zeroth_set[0]) + 4 + len(zeroth_set[1])
+    zeroth_length += zeroth_length % 2
 
     if exif_is:
         exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
         exif_length = len(exif_set[0]) + 4 + len(exif_set[1])
+        exif_length += exif_length % 2
     else:
         exif_bytes = b""
         exif_length = 0
     if gps_is:
         gps_set = _dict_to_bytes(gps_ifd, "GPS", zeroth_length + exif_length)
         gps_bytes = gps_set[0] + b"\x00" * 4 + gps_set[1]
+        gps_bytes += b"\x00" * (len(gps_bytes) % 2)
         gps_length = len(gps_bytes)
     else:
         gps_bytes = b""
@@ -93,16 +96,16 @@ def dump(exif_dict_original):
         offset = zeroth_length + exif_length + gps_length
         interop_set = _dict_to_bytes(interop_ifd, "Interop", offset)
         interop_bytes = interop_set[0] + b"\x00" * 4 + interop_set[1]
+        interop_bytes += b"\x00" * (len(interop_bytes) % 2)
         interop_length = len(interop_bytes)
     else:
         interop_bytes = b""
         interop_length = 0
     if global_parameters_is:
         offset = zeroth_length + exif_length + gps_length + interop_length
-        global_parameters_padding = b"\x00" * (offset % 2)
-        global_parameters_set = _dict_to_bytes(global_parameters_ifd, "GlobalParameters", offset + len(global_parameters_padding))
-        body = global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
-        global_parameters_bytes = global_parameters_padding + body + b"\x00" * (len(body) % 2)
+        global_parameters_set = _dict_to_bytes(global_parameters_ifd, "GlobalParameters", offset)
+        global_parameters_bytes = global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
+        global_parameters_bytes += b"\x00" * (len(global_parameters_bytes) % 2)
         global_parameters_length = len(global_parameters_bytes)
     else:
         global_parameters_bytes = b""
@@ -129,7 +132,7 @@ def dump(exif_dict_original):
     if global_parameters_is:
         zeroth_ifd[ImageIFD.GlobalParametersIFD] = (
             TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length +
-            interop_length + len(global_parameters_padding))
+            interop_length)
     if first_is:
         pointer_value = (TIFF_HEADER_LENGTH + zeroth_length +
                          exif_length + gps_length + interop_length +
@@ -149,8 +152,10 @@ def dump(exif_dict_original):
 
     zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
     zeroth_bytes = zeroth_set[0] + first_ifd_pointer + zeroth_set[1]
+    zeroth_bytes += b"\x00" * (len(zeroth_bytes) % 2)
     if exif_is:
         exif_bytes = exif_set[0] + b"\x00" * 4 + exif_set[1]
+        exif_bytes += b"\x00" * (len(exif_bytes) % 2)
 
     return (header + zeroth_bytes + exif_bytes + gps_bytes +
             interop_bytes + global_parameters_bytes + first_bytes)
