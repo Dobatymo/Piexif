@@ -279,10 +279,10 @@ insert
 ------
 .. py:function:: piexif.insert(exif_bytes, filename)
 
-   Inserts exif into JPEG or WebP.
+   Inserts exif into JPEG, WebP, or PNG.
 
    :param bytes exif_bytes: Exif as bytes
-   :param str filename: JPEG or WebP
+   :param str filename: JPEG, WebP, or PNG
 
 ::
 
@@ -291,19 +291,19 @@ insert
 
 .. py:function:: piexif.insert(exif_bytes, data, output)
 
-   Inserts exif into JPEG or WebP.
+   Inserts exif into JPEG, WebP, or PNG.
 
    :param bytes exif_bytes: Exif as bytes
-   :param bytes data: JPEG or WebP data
+   :param bytes data: JPEG, WebP, or PNG data
    :param io.BytesIO output: output data
 
 remove
 ------
 .. py:function:: piexif.remove(filename)
 
-   Removes exif data from JPEG or WebP.
+   Removes exif data from JPEG, WebP, or PNG.
 
-   :param str filename: JPEG or WebP
+   :param str filename: JPEG, WebP, or PNG
 
 ::
 
@@ -311,9 +311,9 @@ remove
 
 .. py:function:: piexif.remove(data, output)
 
-   Removes exif data from JPEG or WebP.
+   Removes exif data from JPEG, WebP, or PNG.
 
-   :param bytes data: JPEG or WebP data
+   :param bytes data: JPEG, WebP, or PNG data
    :param io.BytesIO output: output data
 
 ``remove_bytes(data, output)`` is the explicit safe byte-input form and never

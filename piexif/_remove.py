@@ -3,6 +3,7 @@ import io
 from ._common import *
 from ._common import _is_image_data
 from piexif import _webp
+from piexif import _png
 
 def remove(src, new_file=None):
     """
@@ -18,9 +19,9 @@ def remove(src, new_file=None):
 
 
 def remove_bytes(data, new_file=None):
-    """Remove metadata from in-memory JPEG or WebP bytes without opening them."""
+    """Remove metadata from in-memory JPEG, WebP, or PNG bytes."""
     if not isinstance(data, bytes) or not _is_image_data(data):
-        raise ValueError("Given data is neither JPEG nor WebP.")
+        raise ValueError("Given data is neither JPEG, WebP, nor PNG.")
     return _remove(data, new_file, False)
 
 
@@ -52,6 +53,8 @@ def _remove(src, new_file, output_is_file):
         except e:
             print(e.args)
             raise ValueError("Error occurred.")
+    elif file_type == "png":
+        new_data = _png.remove(src_data)
 
     if isinstance(new_file, io.BytesIO):
         new_file.write(new_data)

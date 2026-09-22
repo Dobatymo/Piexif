@@ -38,8 +38,8 @@ The standard API provides five functions.
 
 - *load(filename)* - Get exif data as *dict*.
 - *dump(exif_dict)* - Get exif as *bytes*.
-- *insert(exif_bytes, filename)* - Insert exif into JPEG, or WebP.
-- *remove(filename)* - Remove exif from JPEG, or WebP.
+- *insert(exif_bytes, filename)* - Insert exif into JPEG, WebP, or PNG.
+- *remove(filename)* - Remove exif from JPEG, WebP, or PNG.
 - *transplant(filename, filename)* - Transplant exif from JPEG to JPEG.
 
 The advanced API supports nested directory lists:

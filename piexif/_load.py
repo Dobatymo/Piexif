@@ -8,6 +8,7 @@ from ._exceptions import InvalidImageDataError
 from ._exif import *
 from ._exif import _IFD_POINTERS
 from piexif import _webp
+from piexif import _png
 
 LITTLE_ENDIAN = b"\x49\x49"
 try:
@@ -238,10 +239,12 @@ class _ExifReader(object):
             self.tiftag = data
         elif data_type == "webp":
             self.tiftag = _webp.get_exif(data)
+        elif data_type == "png":
+            self.tiftag = _png.get_exif(data)
         elif data_type == "exif":
             self.tiftag = data[6:]
         elif data_is_bytes:
-            raise InvalidImageDataError("Given data is neither JPEG nor TIFF.")
+            raise InvalidImageDataError("Given data is neither JPEG, TIFF, WebP, nor PNG.")
         else:
             with open(data, 'rb') as f:
                 magic_number = f.read(2)
@@ -261,8 +264,11 @@ class _ExifReader(object):
                     with open(data, 'rb') as f:
                         file_data = f.read()
                     self.tiftag = _webp.get_exif(file_data)
+                elif header[0:8] == _png.PNG_SIGNATURE:
+                    with open(data, 'rb') as f:
+                        self.tiftag = _png.get_exif(f.read())
                 else:
-                    raise InvalidImageDataError("Given file is neither JPEG nor TIFF.")
+                    raise InvalidImageDataError("Given file is neither JPEG, TIFF, WebP, nor PNG.")
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
         ifd_dict = {}

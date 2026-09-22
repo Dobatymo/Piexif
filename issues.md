@@ -1,5 +1,17 @@
 # Fixed upstream and fork issues
 
+## PNG EXIF support
+
+- Upstream feature request: [hMatoba/Piexif#49](https://github.com/hMatoba/Piexif/issues/49).
+- Status: implemented in this fork for the standard PNG `eXIf` chunk.
+- `load()`, `load_bytes()`, and `load_file()` read the embedded TIFF/EXIF
+  payload. `insert()` and the removal APIs replace or remove `eXIf` chunks
+  while preserving other PNG chunks.
+- The implementation was checked against the Web Platform Tests sample
+  [`exif-orientation-bottom-right.png`](https://chromium.googlesource.com/external/github.com/web-platform-tests/wpt/+/refs/tags/merge_pr_52606/png/support/exif-orientation-bottom-right.png)
+  and its accompanying [eXIf test](https://chromium.googlesource.com/external/github.com/web-platform-tests/wpt/+/refs/tags/merge_pr_52606/png/exif-chunk.html).
+- PNG text chunks and XMP are not interpreted as EXIF.
+
 ## Corrupt EXIF can trigger `MemoryError`
 
 - Upstream: [hMatoba/Piexif#55](https://github.com/hMatoba/Piexif/issues/55).

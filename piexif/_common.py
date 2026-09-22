@@ -10,6 +10,8 @@ def _is_image_data(data):
         return "tiff"
     if data[0:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "webp"
+    if data[0:8] == b"\x89PNG\r\n\x1a\n":
+        return "png"
     if data[0:4] == b"Exif":
         return "exif"
     return None
