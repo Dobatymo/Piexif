@@ -72,6 +72,20 @@
   count. Both terminated and unterminated `Apple` values retain all five letters.
 - No sample image was supplied to confirm the original file's stored bytes.
 
+## Corrupt FNumber count exhausts memory
+
+- Upstream: [hMatoba/Piexif#90](https://github.com/hMatoba/Piexif/issues/90).
+- Status: already hardened by the corrupt-EXIF bounds checks.
+- Verified using the original
+  [ZIP attachment](https://github.com/hMatoba/Piexif/files/3298890/GettyImages_539746540.jpg.zip)
+  in memory; no sample file was added to the repository.
+- FNumber (33437) declares 4,278,190,081 RATIONAL values at offset 736 in
+  an 840-byte TIFF block. Its claimed value range exceeds the input.
+- The decoder rejects this range before allocating an unpacking format or
+  iterating over the values. Standard JPEG input, Pillow-extracted Exif
+  bytes, and advanced loading all raise InvalidImageDataError promptly.
+- No additional runtime change is required for this reproduction.
+
 ## Integer SceneType cannot be dumped
 
 - Upstream: [hMatoba/Piexif#95](https://github.com/hMatoba/Piexif/issues/95).
