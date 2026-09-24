@@ -25,6 +25,11 @@ def split_into_segments(data):
     head = 2
     segments = [b"\xff\xd8"]
     while 1:
+        segment_start = head
+        while data[head : head + 2] == b"\xff\xff":
+            head += 1
+        segments[-1] += data[segment_start:head]
+
         if data[head : head + 2] == b"\xff\xda":
             segments.append(data[head:])
             break
@@ -42,33 +47,31 @@ def split_into_segments(data):
 
 def read_exif_from_file(filename):
     """Slices JPEG meta data into a list from JPEG binary data."""
-    f = open(filename, "rb")
-    data = f.read(6)
+    with open(filename, "rb") as f:
+        if f.read(2) != b"\xff\xd8":
+            raise InvalidImageDataError("Given data isn't JPEG.")
 
-    if data[0:2] != b"\xff\xd8":
-        raise InvalidImageDataError("Given data isn't JPEG.")
+        while True:
+            if f.read(1) != b"\xff":
+                break
+            marker = f.read(1)
+            while marker == b"\xff":
+                marker = f.read(1)
+            if not marker or marker == b"\xda":
+                break
 
-    head = data[2:6]
-    HEAD_LENGTH = 4
-    exif = None
-    while len(head) == HEAD_LENGTH:
-        length = struct.unpack(">H", head[2:4])[0]
+            length_bytes = f.read(2)
+            if len(length_bytes) != 2:
+                break
+            length = struct.unpack(">H", length_bytes)[0]
+            if length < 2:
+                break
 
-        if head[:2] == b"\xff\xe1":
             segment_data = f.read(length - 2)
-            if segment_data[:4] != b"Exif":
-                head = f.read(HEAD_LENGTH)
-                continue
-            exif = head + segment_data
-            break
-        elif head[0:1] == b"\xff":
-            f.read(length - 2)
-            head = f.read(HEAD_LENGTH)
-        else:
-            break
+            if marker == b"\xe1" and segment_data[:4] == b"Exif":
+                return b"\xff" + marker + length_bytes + segment_data
 
-    f.close()
-    return exif
+    return None
 
 
 def get_exif_seg(segments):
@@ -89,13 +92,24 @@ def merge_segments(segments, exif=b""):
 
     merged = []
     found = False
+    trailing_fill = b""
     for segment in segments:
         if segment[:2] == b"\xff\xe1" and segment[4:10] == b"Exif\x00\x00":
+            segment_length = struct.unpack(">H", segment[2:4])[0] + 2
             if not found and exif is not None:
-                merged.append(exif)
+                merged.append(exif + segment[segment_length:])
+            else:
+                trailing_fill += segment[segment_length:]
             found = True
         else:
-            merged.append(segment)
+            merged.append(trailing_fill + segment)
+            trailing_fill = b""
+
+    if trailing_fill:
+        if merged:
+            merged[-1] += trailing_fill
+        else:
+            merged.append(trailing_fill)
 
     if not found and exif:
         position = 2 if merged[1][:2] == b"\xff\xe0" else 1
