@@ -25,18 +25,23 @@ class MergeSegmentsTests(unittest.TestCase):
 
     def test_replace_exif_after_other_metadata(self):
         segments = self.other + [self.old, self.tail]
-        self.assertEqual(merge_segments(segments, self.new),
-                         b"".join(self.other + [self.new, self.tail]))
+        self.assertEqual(
+            merge_segments(segments, self.new),
+            b"".join(self.other + [self.new, self.tail]),
+        )
 
     def test_duplicate_exif_replaced_once(self):
         segments = self.other + [self.old, self.old, self.tail]
-        self.assertEqual(merge_segments(segments, self.new),
-                         b"".join(self.other + [self.new, self.tail]))
+        self.assertEqual(
+            merge_segments(segments, self.new),
+            b"".join(self.other + [self.new, self.tail]),
+        )
 
     def test_remove_all_exif_preserves_other_segments(self):
         segments = self.other + [self.old, self.old, self.tail]
-        self.assertEqual(merge_segments(segments, None),
-                         b"".join(self.other + [self.tail]))
+        self.assertEqual(
+            merge_segments(segments, None), b"".join(self.other + [self.tail])
+        )
 
     def test_default_preserves_original_bytes(self):
         segments = [b"\xff\xd8", self.app0, self.old, self.tail]

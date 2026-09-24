@@ -1,3 +1,19 @@
+Piexif fork
+===========
+
+This is a maintained fork of Piexif. Install the fork distribution with::
+
+    pip install piexif-fork
+
+The distribution is named ``piexif-fork``, but it still provides the existing
+``piexif`` Python module, so existing ``import piexif`` code can continue to
+use it.
+
+See `issues.md <issues.md>`_ for fork issue tracking and planned work.
+
+Original Piexif README
+======================
+
 Piexif
 ======
 

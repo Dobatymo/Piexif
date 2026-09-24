@@ -9,35 +9,43 @@ from piexif._load import load
 
 
 class DumpValidationTests(unittest.TestCase):
-    thumbnail = (b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00"
-                 b"\xff\xd9")
+    thumbnail = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00" b"\xff\xd9"
 
     def test_thumbnail_ifd_entries_are_sorted(self):
-        raw = dump({"1st": {ImageIFD.XMLPacket: (1,)},
-                    "thumbnail": self.thumbnail})[6:]
+        raw = dump({"1st": {ImageIFD.XMLPacket: (1,)}, "thumbnail": self.thumbnail})[6:]
         first = struct.unpack_from(">I", raw, 10)[0]  # Empty root's next pointer.
         count = struct.unpack_from(">H", raw, first)[0]
-        tags = [struct.unpack_from(">H", raw, first + 2 + index * 12)[0]
-                for index in range(count)]
-        self.assertEqual(tags, [ImageIFD.JPEGInterchangeFormat,
-                               ImageIFD.JPEGInterchangeFormatLength,
-                               ImageIFD.XMLPacket])
+        tags = [
+            struct.unpack_from(">H", raw, first + 2 + index * 12)[0]
+            for index in range(count)
+        ]
+        self.assertEqual(
+            tags,
+            [
+                ImageIFD.JPEGInterchangeFormat,
+                ImageIFD.JPEGInterchangeFormatLength,
+                ImageIFD.XMLPacket,
+            ],
+        )
 
     def test_all_standard_ifds_are_word_aligned(self):
         thumbnail = self.thumbnail
         for length in (4, 5):
             for mask in range(32):
                 source = {"0th": {ImageIFD.Make: b"x" * length}}
-                options = (("Exif", {ExifIFD.DateTimeOriginal: b"x" * length}),
-                           ("GPS", {GPSIFD.GPSMapDatum: b"x" * length}),
-                           ("Interop", {InteropIFD.InteroperabilityIndex: b"x" * length}),
-                           ("GlobalParameters", {ImageIFD.Software: b"x" * length}))
+                options = (
+                    ("Exif", {ExifIFD.DateTimeOriginal: b"x" * length}),
+                    ("GPS", {GPSIFD.GPSMapDatum: b"x" * length}),
+                    ("Interop", {InteropIFD.InteroperabilityIndex: b"x" * length}),
+                    ("GlobalParameters", {ImageIFD.Software: b"x" * length}),
+                )
                 for index, (name, tags) in enumerate(options):
                     if mask & (1 << index):
                         source[name] = tags
                 if mask & 16:
-                    source.update({"1st": {ImageIFD.Make: b"x" * length},
-                                   "thumbnail": thumbnail})
+                    source.update(
+                        {"1st": {ImageIFD.Make: b"x" * length}, "thumbnail": thumbnail}
+                    )
                 before = copy.deepcopy(source)
                 encoded = dump(source)
                 raw = encoded[6:]
@@ -51,19 +59,26 @@ class DumpValidationTests(unittest.TestCase):
                     fields = {}
                     for index in range(count):
                         tag, kind, size, value = struct.unpack_from(
-                            ">HHII", raw, pointer + 2 + index * 12)
+                            ">HHII", raw, pointer + 2 + index * 12
+                        )
                         fields[tag] = value
-                        if tag in (ImageIFD.GlobalParametersIFD, ImageIFD.ExifTag,
-                                   ImageIFD.GPSTag, ExifIFD.InteroperabilityTag):
+                        if tag in (
+                            ImageIFD.GlobalParametersIFD,
+                            ImageIFD.ExifTag,
+                            ImageIFD.GPSTag,
+                            ExifIFD.InteroperabilityTag,
+                        ):
                             self.assertEqual((kind, size), (4, 1))
                             stack.append(value)
-                    following = struct.unpack_from(">I", raw, pointer + 2 + count * 12)[0]
+                    following = struct.unpack_from(">I", raw, pointer + 2 + count * 12)[
+                        0
+                    ]
                     if following:
                         stack.append(following)
                     if ImageIFD.JPEGInterchangeFormat in fields:
                         start = fields[ImageIFD.JPEGInterchangeFormat]
                         size = fields[ImageIFD.JPEGInterchangeFormatLength]
-                        self.assertEqual(raw[start:start + size], thumbnail)
+                        self.assertEqual(raw[start : start + size], thumbnail)
                 result = load(encoded)
                 for name, tags in source.items():
                     if name == "thumbnail":
@@ -78,8 +93,11 @@ class DumpValidationTests(unittest.TestCase):
         thumbnail = self.thumbnail
         replacement = thumbnail[:2] + b"\xff\xfe\x00\x09changed" + thumbnail[2:]
         for first in ({}, {ImageIFD.Make: b"Preview"}):
-            source = {"0th": {ImageIFD.Make: b"Main"}, "1st": first,
-                      "thumbnail": thumbnail}
+            source = {
+                "0th": {ImageIFD.Make: b"Main"},
+                "1st": first,
+                "thumbnail": thumbnail,
+            }
             before = copy.deepcopy(source)
             result = load(dump(source))
             self.assertEqual(result["thumbnail"], thumbnail)
@@ -91,7 +109,9 @@ class DumpValidationTests(unittest.TestCase):
             result["1st"][ImageIFD.JPEGInterchangeFormatLength] = 1
             result = load(dump(result))
             self.assertEqual(result["thumbnail"], replacement)
-            self.assertEqual(result["1st"][ImageIFD.JPEGInterchangeFormatLength], len(replacement))
+            self.assertEqual(
+                result["1st"][ImageIFD.JPEGInterchangeFormatLength], len(replacement)
+            )
             self.assertEqual(load(dump(result))["thumbnail"], replacement)
             for omitted in (False, True):
                 candidate = copy.deepcopy(result)
@@ -118,16 +138,29 @@ class DumpValidationTests(unittest.TestCase):
 
     def test_global_parameters_ifd_alignment(self):
         thumbnail = self.thumbnail
-        for extra in ({}, {"Exif": {ExifIFD.DateTimeOriginal: b"odd!"},
-                           "GPS": {GPSIFD.GPSAltitudeRef: 0},
-                           "Interop": {InteropIFD.InteroperabilityIndex: b"R98"}}):
+        for extra in (
+            {},
+            {
+                "Exif": {ExifIFD.DateTimeOriginal: b"odd!"},
+                "GPS": {GPSIFD.GPSAltitudeRef: 0},
+                "Interop": {InteropIFD.InteroperabilityIndex: b"R98"},
+            },
+        ):
             for with_thumbnail in (False, True):
-                source = dict(extra, **{"0th": {ImageIFD.Make: b"even"},
-                                        "GlobalParameters": {ImageIFD.ProfileType: 1,
-                                                   ImageIFD.Software: b"even"}})
+                source = dict(
+                    extra,
+                    **{
+                        "0th": {ImageIFD.Make: b"even"},
+                        "GlobalParameters": {
+                            ImageIFD.ProfileType: 1,
+                            ImageIFD.Software: b"even",
+                        },
+                    }
+                )
                 if with_thumbnail:
-                    source.update({"1st": {ImageIFD.Make: b"Preview"},
-                                   "thumbnail": thumbnail})
+                    source.update(
+                        {"1st": {ImageIFD.Make: b"Preview"}, "thumbnail": thumbnail}
+                    )
                 encoded = dump(source)
                 result = load(encoded)
                 self.assertEqual(result["0th"][ImageIFD.GlobalParametersIFD] % 2, 0)
@@ -142,42 +175,58 @@ class DumpValidationTests(unittest.TestCase):
                         self.assertEqual(result[name][tag], value)
 
     def test_tiff_fx_shared_tiff_fields_roundtrip(self):
-        globals_ifd = {ImageIFD.ProfileType: 1,
-                       ImageIFD.Orientation: 1,
-                       ImageIFD.Software: b"Global software",
-                       ImageIFD.XResolution: (300, 1),
-                       ImageIFD.Copyright: b"Global copyright"}
+        globals_ifd = {
+            ImageIFD.ProfileType: 1,
+            ImageIFD.Orientation: 1,
+            ImageIFD.Software: b"Global software",
+            ImageIFD.XResolution: (300, 1),
+            ImageIFD.Copyright: b"Global copyright",
+        }
         source = {"0th": {ImageIFD.Orientation: 6}, "GlobalParameters": globals_ifd}
         encoded = dump(source)
         loaded = load(encoded)
         self.assertEqual(loaded["GlobalParameters"], globals_ifd)
         self.assertEqual(loaded["0th"][ImageIFD.Orientation], 6)
-        self.assertEqual(load(encoded, key_is_name=True)["GlobalParameters"],
-                         {"ProfileType": 1, "Orientation": 1,
-                          "Software": b"Global software",
-                          "XResolution": (300, 1),
-                          "Copyright": b"Global copyright"})
+        self.assertEqual(
+            load(encoded, key_is_name=True)["GlobalParameters"],
+            {
+                "ProfileType": 1,
+                "Orientation": 1,
+                "Software": b"Global software",
+                "XResolution": (300, 1),
+                "Copyright": b"Global copyright",
+            },
+        )
         pointer = loaded["0th"][ImageIFD.GlobalParametersIFD]
         tiff = encoded[6:]
         count = struct.unpack_from(">H", tiff, pointer)[0]
-        tags = [struct.unpack_from(">H", tiff, pointer + 2 + 12 * i)[0]
-                for i in range(count)]
+        tags = [
+            struct.unpack_from(">H", tiff, pointer + 2 + 12 * i)[0]
+            for i in range(count)
+        ]
         self.assertEqual(tags, sorted(tags))
 
     def test_tiff_fx_tags_roundtrip(self):
-        values = {ImageIFD.ProfileType: 1, ImageIFD.FaxProfile: 6,
-                  ImageIFD.CodingMethods: 0x28,
-                  ImageIFD.VersionYear: (49, 57, 57, 57),
-                  ImageIFD.ModeNumber: 0}
-        image_values = {ImageIFD.StripRowCounts: (100, 200),
-                        ImageIFD.ImageLayer: (2, 1)}
+        values = {
+            ImageIFD.ProfileType: 1,
+            ImageIFD.FaxProfile: 6,
+            ImageIFD.CodingMethods: 0x28,
+            ImageIFD.VersionYear: (49, 57, 57, 57),
+            ImageIFD.ModeNumber: 0,
+        }
+        image_values = {
+            ImageIFD.StripRowCounts: (100, 200),
+            ImageIFD.ImageLayer: (2, 1),
+        }
         thumbnail = self.thumbnail
         self.assertIsNotNone(thumbnail)
-        siblings = {"Exif": {ExifIFD.DateTimeOriginal: b"2026:09:18 12:34:56"},
-                    "GPS": {GPSIFD.GPSLatitude: ((1, 1), (2, 1), (3, 1))},
-                    "Interop": {InteropIFD.InteroperabilityIndex: b"R98"},
-                    "1st": {ImageIFD.Make: b"Thumbnail camera"},
-                    "thumbnail": thumbnail}
+        siblings = {
+            "Exif": {ExifIFD.DateTimeOriginal: b"2026:09:18 12:34:56"},
+            "GPS": {GPSIFD.GPSLatitude: ((1, 1), (2, 1), (3, 1))},
+            "Interop": {InteropIFD.InteroperabilityIndex: b"R98"},
+            "1st": {ImageIFD.Make: b"Thumbnail camera"},
+            "thumbnail": thumbnail,
+        }
         for extra in ({}, siblings):
             source = dict(extra, **{"0th": image_values, "GlobalParameters": values})
             encoded = dump(source)
@@ -190,27 +239,39 @@ class DumpValidationTests(unittest.TestCase):
                         self.assertEqual(loaded[ifd][tag], value)
             tiff = encoded[6:]
             count = struct.unpack_from(">H", tiff, 8)[0]
-            tags = [struct.unpack_from(">H", tiff, 10 + i * 12)[0]
-                    for i in range(count)]
+            tags = [
+                struct.unpack_from(">H", tiff, 10 + i * 12)[0] for i in range(count)
+            ]
             self.assertEqual(tags, sorted(tags))
             pointer = loaded["0th"][ImageIFD.GlobalParametersIFD]
-            entries = [struct.unpack_from(">HHI", tiff, pointer + 2 + i * 12)
-                       for i in range(5)]
-            self.assertEqual(entries, [(401, 4, 1), (402, 1, 1), (403, 4, 1),
-                                       (404, 1, 4), (405, 1, 1)])
-            self.assertEqual(load(encoded, key_is_name=True)["GlobalParameters"],
-                             {"ProfileType": 1, "FaxProfile": 6,
-                              "CodingMethods": 40,
-                              "VersionYear": (49, 57, 57, 57), "ModeNumber": 0})
+            entries = [
+                struct.unpack_from(">HHI", tiff, pointer + 2 + i * 12) for i in range(5)
+            ]
+            self.assertEqual(
+                entries,
+                [(401, 4, 1), (402, 1, 1), (403, 4, 1), (404, 1, 4), (405, 1, 1)],
+            )
+            self.assertEqual(
+                load(encoded, key_is_name=True)["GlobalParameters"],
+                {
+                    "ProfileType": 1,
+                    "FaxProfile": 6,
+                    "CodingMethods": 40,
+                    "VersionYear": (49, 57, 57, 57),
+                    "ModeNumber": 0,
+                },
+            )
 
     def test_nested_ifds_have_null_next_pointers(self):
         cases = [
             {"Exif": {ExifIFD.ExifVersion: b"0230"}},
             {"GPS": {GPSIFD.GPSAltitudeRef: 0}},
             {"Interop": {InteropIFD.InteroperabilityIndex: b"R98"}},
-            {"Exif": {ExifIFD.DateTimeOriginal: b"2026:09:14 12:34:56"},
-             "GPS": {GPSIFD.GPSLatitude: ((1, 1), (2, 1), (3, 1))},
-             "Interop": {InteropIFD.InteroperabilityIndex: b"R98"}},
+            {
+                "Exif": {ExifIFD.DateTimeOriginal: b"2026:09:14 12:34:56"},
+                "GPS": {GPSIFD.GPSLatitude: ((1, 1), (2, 1), (3, 1))},
+                "Interop": {InteropIFD.InteroperabilityIndex: b"R98"},
+            },
         ]
         for source in cases:
             exif = dump(source)
@@ -226,7 +287,7 @@ class DumpValidationTests(unittest.TestCase):
             for pointer in pointers:
                 count = struct.unpack_from(">H", tiff, pointer)[0]
                 end = pointer + 2 + count * 12
-                self.assertEqual(tiff[end:end + 4], b"\x00" * 4)
+                self.assertEqual(tiff[end : end + 4], b"\x00" * 4)
                 for pos in range(pointer + 2, end, 12):
                     tag, kind, length, offset = struct.unpack_from(">HHII", tiff, pos)
                     size = length * (8 if kind == 5 else 1)
@@ -238,8 +299,10 @@ class DumpValidationTests(unittest.TestCase):
 
     def test_interop_without_exif(self):
         interop = {InteropIFD.InteroperabilityIndex: b"R98"}
-        for siblings in ({}, {"0th": {ImageIFD.Make: b"Camera"},
-                              "GPS": {GPSIFD.GPSAltitudeRef: 0}}):
+        for siblings in (
+            {},
+            {"0th": {ImageIFD.Make: b"Camera"}, "GPS": {GPSIFD.GPSAltitudeRef: 0}},
+        ):
             source = dict(siblings, Interop=interop)
             exif = dump(source)
             self.assertEqual(exif, dump(dict(source, Exif={})))
@@ -279,12 +342,13 @@ class DumpValidationTests(unittest.TestCase):
             ("0th", ImageIFD.TimeZoneOffset, 32768),
             ("GPS", GPSIFD.GPSAltitudeRef, 256),
             ("GPS", GPSIFD.GPSAltitudeRef, (256,)),
-            ("GPS", GPSIFD.GPSLatitude,
-             ((1, 1), (2, 1), (2476979795053773, 2251799813685248))),
-            ("GPS", GPSIFD.GPSLatitude,
-             ((1, 1), (2, 1), (4294967296, 1))),
-            ("GPS", GPSIFD.GPSLatitude,
-             ((1, 1), (2, 1), (1, 4294967296))),
+            (
+                "GPS",
+                GPSIFD.GPSLatitude,
+                ((1, 1), (2, 1), (2476979795053773, 2251799813685248)),
+            ),
+            ("GPS", GPSIFD.GPSLatitude, ((1, 1), (2, 1), (4294967296, 1))),
+            ("GPS", GPSIFD.GPSLatitude, ((1, 1), (2, 1), (1, 4294967296))),
             ("Exif", ExifIFD.ShutterSpeedValue, "0.00080000"),
             ("Exif", ExifIFD.MaxApertureValue, "2.0"),
             ("Exif", ExifIFD.FocalLength, "50.0"),

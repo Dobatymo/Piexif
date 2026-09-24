@@ -2,8 +2,8 @@ import copy
 import numbers
 import struct
 
-from ._common import *
-from ._exif import *
+from ._common import split_into_segments
+from ._exif import TAGS, TYPES, ExifIFD, ImageIFD
 from ._exif import _IFD_POINTERS
 from ._exceptions import InvalidImageDataError
 
@@ -39,16 +39,20 @@ def dump(exif_dict_original):
 
     zeroth_ifd = exif_dict.get("0th", {})
 
-    if (("Exif" in exif_dict) and len(exif_dict["Exif"]) or
-          ("Interop" in exif_dict) and len(exif_dict["Interop"]) ):
+    if (
+        ("Exif" in exif_dict)
+        and len(exif_dict["Exif"])
+        or ("Interop" in exif_dict)
+        and len(exif_dict["Interop"])
+    ):
         zeroth_ifd[ImageIFD.ExifTag] = 1
         exif_is = True
         exif_ifd = exif_dict.get("Exif", {})
         if ("Interop" in exif_dict) and len(exif_dict["Interop"]):
-            exif_ifd[ExifIFD. InteroperabilityTag] = 1
+            exif_ifd[ExifIFD.InteroperabilityTag] = 1
             interop_is = True
             interop_ifd = exif_dict["Interop"]
-        elif ExifIFD. InteroperabilityTag in exif_ifd:
+        elif ExifIFD.InteroperabilityTag in exif_ifd:
             exif_ifd.pop(ExifIFD.InteroperabilityTag)
     elif ImageIFD.ExifTag in zeroth_ifd:
         zeroth_ifd.pop(ImageIFD.ExifTag)
@@ -103,16 +107,25 @@ def dump(exif_dict_original):
         interop_length = 0
     if global_parameters_is:
         offset = zeroth_length + exif_length + gps_length + interop_length
-        global_parameters_set = _dict_to_bytes(global_parameters_ifd, "GlobalParameters", offset)
-        global_parameters_bytes = global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
+        global_parameters_set = _dict_to_bytes(
+            global_parameters_ifd, "GlobalParameters", offset
+        )
+        global_parameters_bytes = (
+            global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
+        )
         global_parameters_bytes += b"\x00" * (len(global_parameters_bytes) % 2)
         global_parameters_length = len(global_parameters_bytes)
     else:
         global_parameters_bytes = b""
         global_parameters_length = 0
     if first_is:
-        offset = (zeroth_length + exif_length + gps_length + interop_length +
-                  global_parameters_length)
+        offset = (
+            zeroth_length
+            + exif_length
+            + gps_length
+            + interop_length
+            + global_parameters_length
+        )
         first_set = _dict_to_bytes(first_ifd, "1st", offset)
         thumbnail = _get_thumbnail(exif_dict["thumbnail"])
         thumbnail_max_size = 64000
@@ -123,23 +136,31 @@ def dump(exif_dict_original):
     if exif_is:
         zeroth_ifd[ImageIFD.ExifTag] = TIFF_HEADER_LENGTH + zeroth_length
     if gps_is:
-        zeroth_ifd[ImageIFD.GPSTag] = (TIFF_HEADER_LENGTH + zeroth_length +
-                                     exif_length)
+        zeroth_ifd[ImageIFD.GPSTag] = TIFF_HEADER_LENGTH + zeroth_length + exif_length
     if interop_is:
         exif_ifd[ExifIFD.InteroperabilityTag] = (
-            TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length)
+            TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length
+        )
         exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
     if global_parameters_is:
         zeroth_ifd[ImageIFD.GlobalParametersIFD] = (
-            TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length +
-            interop_length)
+            TIFF_HEADER_LENGTH
+            + zeroth_length
+            + exif_length
+            + gps_length
+            + interop_length
+        )
     if first_is:
-        pointer_value = (TIFF_HEADER_LENGTH + zeroth_length +
-                         exif_length + gps_length + interop_length +
-                         global_parameters_length)
+        pointer_value = (
+            TIFF_HEADER_LENGTH
+            + zeroth_length
+            + exif_length
+            + gps_length
+            + interop_length
+            + global_parameters_length
+        )
         first_ifd_pointer = struct.pack(">L", pointer_value)
-        thumbnail_pointer = (pointer_value + len(first_set[0]) +
-                             4 + len(first_set[1]))
+        thumbnail_pointer = pointer_value + len(first_set[0]) + 4 + len(first_set[1])
         first_ifd[ImageIFD.JPEGInterchangeFormat] = thumbnail_pointer
         first_ifd[ImageIFD.JPEGInterchangeFormatLength] = len(thumbnail)
         first_set = _dict_to_bytes(first_ifd, "1st", pointer_value - TIFF_HEADER_LENGTH)
@@ -154,8 +175,15 @@ def dump(exif_dict_original):
         exif_bytes = exif_set[0] + b"\x00" * 4 + exif_set[1]
         exif_bytes += b"\x00" * (len(exif_bytes) % 2)
 
-    return (header + zeroth_bytes + exif_bytes + gps_bytes +
-            interop_bytes + global_parameters_bytes + first_bytes)
+    return (
+        header
+        + zeroth_bytes
+        + exif_bytes
+        + gps_bytes
+        + interop_bytes
+        + global_parameters_bytes
+        + first_bytes
+    )
 
 
 def _collect_image_ifds(ifds):
@@ -176,30 +204,42 @@ def _collect_image_ifds(ifds):
             allowed = {"tags"} | {name for tag, name in _IFD_POINTERS.get(kind, ())}
             if kind == "Image":
                 allowed.update(("subifds", "jpeg_data"))
-            if (not isinstance(node, dict) or not isinstance(node.get("tags"), dict) or
-                    set(node) - allowed):
+            if (
+                not isinstance(node, dict)
+                or not isinstance(node.get("tags"), dict)
+                or set(node) - allowed
+            ):
                 raise InvalidImageDataError("Invalid {} IFD directory.".format(kind))
             pointer = id(node)
             following = id(chain[index + 1]) if index + 1 < len(chain) else 0
             if pointer in nodes:
                 if nodes[pointer]["kind"] != kind:
-                    raise InvalidImageDataError("IFD referenced with incompatible types.")
+                    raise InvalidImageDataError(
+                        "IFD referenced with incompatible types."
+                    )
                 if nodes[pointer]["next"] != following:
-                    raise InvalidImageDataError("Shared image IFD has conflicting successors.")
+                    raise InvalidImageDataError(
+                        "Shared image IFD has conflicting successors."
+                    )
                 continue
             children = node.get("subifds", [])
-            if (not isinstance(children, list) or
-                    any(not isinstance(child, list) or not child for child in children)):
+            if not isinstance(children, list) or any(
+                not isinstance(child, list) or not child for child in children
+            ):
                 raise InvalidImageDataError("SubIFD chains must be nonempty lists.")
             links = {}
             for tag, name in _IFD_POINTERS.get(kind, ()):
                 if name in node:
                     links[name] = id(node[name])
                     stack.append((name, node[name]))
-            nodes[pointer] = {"kind": kind, "tags": copy.deepcopy(node["tags"]),
-                              "next": following, "links": links,
-                              "subifds": tuple(id(child[0]) for child in children),
-                              "jpeg_data": node.get("jpeg_data")}
+            nodes[pointer] = {
+                "kind": kind,
+                "tags": copy.deepcopy(node["tags"]),
+                "next": following,
+                "links": links,
+                "subifds": tuple(id(child[0]) for child in children),
+                "jpeg_data": node.get("jpeg_data"),
+            }
             stack.extend(("Image", child) for child in children)
     return id(ifds[0]), nodes
 
@@ -243,8 +283,11 @@ def dump_ifds(ifds):
         order.append(pointer)
         node = nodes[pointer]
         targets = list(node["subifds"])
-        targets.extend(node["links"][name] for tag, name in _IFD_POINTERS.get(node["kind"], ())
-                       if name in node["links"])
+        targets.extend(
+            node["links"][name]
+            for tag, name in _IFD_POINTERS.get(node["kind"], ())
+            if name in node["links"]
+        )
         if node["next"]:
             targets.append(node["next"])
         stack.append((pointer, True))
@@ -279,7 +322,9 @@ def dump_ifds(ifds):
         offsets[pointer] = offset
         entries, values = _dict_to_bytes(node["tags"], node["kind"], offset - 8)
         if node["jpeg_data"] is not None:
-            node["tags"][ImageIFD.JPEGInterchangeFormat] = offset + len(entries) + 4 + len(values)
+            node["tags"][ImageIFD.JPEGInterchangeFormat] = (
+                offset + len(entries) + 4 + len(values)
+            )
         size = len(entries) + 4 + len(values) + len(node["jpeg_data"] or b"")
         offset += size + size % 2
 
@@ -302,7 +347,7 @@ def dump_ifds(ifds):
 
 def _get_thumbnail(jpeg):
     segments = split_into_segments(jpeg)
-    while (b"\xff\xe0" <= segments[1][0:2] <= b"\xff\xef"):
+    while b"\xff\xe0" <= segments[1][0:2] <= b"\xff\xef":
         segments.pop(1)
     thumbnail = b"".join(segments)
     return thumbnail
@@ -311,23 +356,30 @@ def _get_thumbnail(jpeg):
 def _pack_byte(*args):
     return struct.pack("B" * len(args), *args)
 
+
 def _pack_signed_byte(*args):
     return struct.pack("b" * len(args), *args)
+
 
 def _pack_short(*args):
     return struct.pack(">" + "H" * len(args), *args)
 
+
 def _pack_signed_short(*args):
     return struct.pack(">" + "h" * len(args), *args)
+
 
 def _pack_long(*args):
     return struct.pack(">" + "L" * len(args), *args)
 
+
 def _pack_slong(*args):
     return struct.pack(">" + "l" * len(args), *args)
 
+
 def _pack_float(*args):
     return struct.pack(">" + "f" * len(args), *args)
+
 
 def _pack_double(*args):
     return struct.pack(">" + "d" * len(args), *args)
@@ -336,16 +388,18 @@ def _pack_double(*args):
 def _rational_values(raw_value, signed):
     if not isinstance(raw_value, (tuple, list)):
         raise ValueError("Got invalid type to convert.")
-    if len(raw_value) == 2 and all(isinstance(v, numbers.Integral)
-                                   for v in raw_value):
+    if len(raw_value) == 2 and all(isinstance(v, numbers.Integral) for v in raw_value):
         values = [raw_value]
-    elif raw_value and all(isinstance(v, (tuple, list)) and len(v) == 2 and
-                           all(isinstance(n, numbers.Integral) for n in v)
-                           for v in raw_value):
+    elif raw_value and all(
+        isinstance(v, (tuple, list))
+        and len(v) == 2
+        and all(isinstance(n, numbers.Integral) for n in v)
+        for v in raw_value
+    ):
         values = raw_value
     else:
         raise ValueError("Got invalid type to convert.")
-    minimum = -2 ** 31 if signed else 0
+    minimum = -(2 ** 31) if signed else 0
     maximum = 2 ** 31 - 1 if signed else 2 ** 32 - 1
     if any(not minimum <= n <= maximum for pair in values for n in pair):
         raise ValueError("Got invalid type to convert.")
@@ -359,16 +413,14 @@ def _value_to_bytes(raw_value, value_type, offset):
     if value_type == TYPES.Byte:
         length = len(raw_value)
         if length <= 4:
-            value_str = (_pack_byte(*raw_value) +
-                            b"\x00" * (4 - length))
+            value_str = _pack_byte(*raw_value) + b"\x00" * (4 - length)
         else:
             value_str = struct.pack(">I", offset)
             four_bytes_over = _pack_byte(*raw_value)
     elif value_type == TYPES.Short:
         length = len(raw_value)
         if length <= 2:
-            value_str = (_pack_short(*raw_value) +
-                            b"\x00\x00" * (2 - length))
+            value_str = _pack_short(*raw_value) + b"\x00\x00" * (2 - length)
         else:
             value_str = struct.pack(">I", offset)
             four_bytes_over = _pack_short(*raw_value)
@@ -389,7 +441,7 @@ def _value_to_bytes(raw_value, value_type, offset):
     elif value_type == TYPES.Ascii:
         try:
             new_value = raw_value.encode("latin1") + b"\x00"
-        except:
+        except (AttributeError, UnicodeError):
             try:
                 new_value = raw_value + b"\x00"
             except TypeError:
@@ -403,15 +455,17 @@ def _value_to_bytes(raw_value, value_type, offset):
     elif value_type == TYPES.Rational:
         values = _rational_values(raw_value, signed=False)
         length = len(values)
-        new_value = b"".join(struct.pack(">L", num) + struct.pack(">L", den)
-                              for num, den in values)
+        new_value = b"".join(
+            struct.pack(">L", num) + struct.pack(">L", den) for num, den in values
+        )
         value_str = struct.pack(">I", offset)
         four_bytes_over = new_value
     elif value_type == TYPES.SRational:
         values = _rational_values(raw_value, signed=True)
         length = len(values)
-        new_value = b"".join(struct.pack(">l", num) + struct.pack(">l", den)
-                              for num, den in values)
+        new_value = b"".join(
+            struct.pack(">l", num) + struct.pack(">l", den) for num, den in values
+        )
         value_str = struct.pack(">I", offset)
         four_bytes_over = new_value
     elif value_type == TYPES.Undefined:
@@ -427,19 +481,17 @@ def _value_to_bytes(raw_value, value_type, offset):
                 value_str = raw_value + b"\x00" * (4 - length)
             except TypeError:
                 raise ValueError("Got invalid type to convert.")
-    elif value_type == TYPES.SByte: # Signed Byte
+    elif value_type == TYPES.SByte:  # Signed Byte
         length = len(raw_value)
         if length <= 4:
-            value_str = (_pack_signed_byte(*raw_value) +
-                            b"\x00" * (4 - length))
+            value_str = _pack_signed_byte(*raw_value) + b"\x00" * (4 - length)
         else:
             value_str = struct.pack(">I", offset)
             four_bytes_over = _pack_signed_byte(*raw_value)
-    elif value_type == TYPES.SShort: # Signed Short
+    elif value_type == TYPES.SShort:  # Signed Short
         length = len(raw_value)
         if length <= 2:
-            value_str = (_pack_signed_short(*raw_value) +
-                            b"\x00\x00" * (2 - length))
+            value_str = _pack_signed_short(*raw_value) + b"\x00\x00" * (2 - length)
         else:
             value_str = struct.pack(">I", offset)
             four_bytes_over = _pack_signed_short(*raw_value)
@@ -450,13 +502,14 @@ def _value_to_bytes(raw_value, value_type, offset):
         else:
             value_str = struct.pack(">I", offset)
             four_bytes_over = _pack_float(*raw_value)
-    elif value_type == TYPES.DFloat: # Double
+    elif value_type == TYPES.DFloat:  # Double
         length = len(raw_value)
         value_str = struct.pack(">I", offset)
         four_bytes_over = _pack_double(*raw_value)
 
     length_str = struct.pack(">I", length)
     return length_str, value_str, four_bytes_over
+
 
 def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
     tag_count = len(ifd_dict)
@@ -469,8 +522,12 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
         raw_value = ifd_dict[key]
         key_str = struct.pack(">H", key)
         value_type = TAGS[ifd][key]["type"]
-        if key == ImageIFD.AsShotNeutral and isinstance(raw_value, (tuple, list)) \
-                and raw_value and isinstance(raw_value[0], (tuple, list)):
+        if (
+            key == ImageIFD.AsShotNeutral
+            and isinstance(raw_value, (tuple, list))
+            and raw_value
+            and isinstance(raw_value[0], (tuple, list))
+        ):
             value_type = TYPES.Rational
         type_str = struct.pack(">H", value_type)
         four_bytes_over = b""
@@ -480,13 +537,13 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
         offset = TIFF_HEADER_LENGTH + entries_length + ifd_offset + len(values)
 
         try:
-            length_str, value_str, four_bytes_over = _value_to_bytes(raw_value,
-                                                                     value_type,
-                                                                     offset)
+            length_str, value_str, four_bytes_over = _value_to_bytes(
+                raw_value, value_type, offset
+            )
         except (ValueError, struct.error):
             raise InvalidImageDataError(
-                '"dump" got invalid exif value (wrong type or out of range).\n' +
-                '{} in {} IFD. Got as {}.'.format(key, ifd, type(ifd_dict[key]))
+                '"dump" got invalid exif value (wrong type or out of range).\n'
+                + "{} in {} IFD. Got as {}.".format(key, ifd, type(ifd_dict[key]))
             )
 
         entries += key_str + type_str + length_str + value_str

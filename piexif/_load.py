@@ -2,11 +2,14 @@ import numbers
 import struct
 import sys
 
-from ._common import *
-from ._common import _is_image_data
+from ._common import (
+    _is_image_data,
+    get_exif_seg,
+    read_exif_from_file,
+    split_into_segments,
+)
 from ._exceptions import InvalidImageDataError
-from ._exif import *
-from ._exif import _IFD_POINTERS
+from ._exif import TAGS, TYPES, ExifIFD, ImageIFD, _IFD_POINTERS
 from piexif import _webp
 from piexif import _png
 
@@ -85,14 +88,17 @@ def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
     return _load(input_data, key_is_name, True, load_jpeg_data)
 
 
-def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False,
-          data_is_bytes=False):
-    exif_dict = {"0th":{},
-                 "Exif":{},
-                 "GPS":{},
-                 "Interop":{},
-                 "1st":{},
-                 "thumbnail":None}
+def _load(
+    input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_bytes=False
+):
+    exif_dict = {
+        "0th": {},
+        "Exif": {},
+        "GPS": {},
+        "Interop": {},
+        "1st": {},
+        "thumbnail": None,
+    }
     exifReader = _ExifReader(input_data, data_is_bytes)
     if exifReader.tiftag is None:
         if full_ifds:
@@ -104,8 +110,7 @@ def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False,
     else:
         exifReader.endian_mark = ">"
 
-    pointer = struct.unpack(exifReader.endian_mark + "L",
-                            exifReader.tiftag[4:8])[0]
+    pointer = struct.unpack(exifReader.endian_mark + "L", exifReader.tiftag[4:8])[0]
     if full_ifds:
         return exifReader.get_image_ifds(pointer, key_is_name, load_jpeg_data)
     zeroth_ifd = exifReader.get_ifd_dict(pointer, "0th")
@@ -124,12 +129,16 @@ def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False,
         exif_dict["GPS"] = exifReader.get_ifd_dict(pointer, "GPS")
     if ImageIFD.GlobalParametersIFD in zeroth_ifd:
         pointer = zeroth_ifd[ImageIFD.GlobalParametersIFD]
-        exif_dict["GlobalParameters"] = exifReader.get_ifd_dict(pointer, "GlobalParameters")
+        exif_dict["GlobalParameters"] = exifReader.get_ifd_dict(
+            pointer, "GlobalParameters"
+        )
     if ExifIFD.InteroperabilityTag in exif_dict["Exif"]:
         pointer = exif_dict["Exif"][ExifIFD.InteroperabilityTag]
         exif_dict["Interop"] = exifReader.get_ifd_dict(pointer, "Interop")
-    if (ImageIFD.JPEGInterchangeFormat in first_ifd and
-            ImageIFD.JPEGInterchangeFormatLength in first_ifd):
+    if (
+        ImageIFD.JPEGInterchangeFormat in first_ifd
+        and ImageIFD.JPEGInterchangeFormatLength in first_ifd
+    ):
         start = first_ifd[ImageIFD.JPEGInterchangeFormat]
         end = start + first_ifd[ImageIFD.JPEGInterchangeFormatLength]
         exif_dict["thumbnail"] = exifReader.tiftag[start:end]
@@ -153,7 +162,9 @@ class _ExifReader(object):
                 raise InvalidImageDataError("Cyclic IFD graph.")
             if pointer in nodes:
                 if nodes[pointer]["kind"] != kind:
-                    raise InvalidImageDataError("IFD referenced with incompatible types.")
+                    raise InvalidImageDataError(
+                        "IFD referenced with incompatible types."
+                    )
                 continue
             tags = self.get_ifd_dict(pointer, kind)
             links = {}
@@ -162,11 +173,15 @@ class _ExifReader(object):
                     links[name] = tags.pop(tag)
             following, children = 0, ()
             if kind == "Image":
-                count = struct.unpack_from(self.endian_mark + "H", self.tiftag, pointer)[0]
+                count = struct.unpack_from(
+                    self.endian_mark + "H", self.tiftag, pointer
+                )[0]
                 end = pointer + 2 + count * 12
                 if end + 4 > len(self.tiftag):
                     raise InvalidImageDataError("Invalid image IFD size.")
-                following = struct.unpack_from(self.endian_mark + "L", self.tiftag, end)[0]
+                following = struct.unpack_from(
+                    self.endian_mark + "L", self.tiftag, end
+                )[0]
                 if ImageIFD.SubIFDs in tags:
                     children = tags.pop(ImageIFD.SubIFDs)
                     if not isinstance(children, tuple):
@@ -175,8 +190,14 @@ class _ExifReader(object):
                         raise InvalidImageDataError("Invalid SubIFDs offset.")
                     for index in range(count):
                         tag, value_type = struct.unpack_from(
-                            self.endian_mark + "HH", self.tiftag, pointer + 2 + index * 12)
-                        if tag == ImageIFD.SubIFDs and value_type not in (TYPES.Long, TYPES.Ifd):
+                            self.endian_mark + "HH",
+                            self.tiftag,
+                            pointer + 2 + index * 12,
+                        )
+                        if tag == ImageIFD.SubIFDs and value_type not in (
+                            TYPES.Long,
+                            TYPES.Ifd,
+                        ):
                             raise InvalidImageDataError("Invalid SubIFDs pointer type.")
             node = {"tags": tags}
             if kind == "Image":
@@ -184,12 +205,24 @@ class _ExifReader(object):
                 start = tags.pop(ImageIFD.JPEGInterchangeFormat, None)
                 length = tags.pop(ImageIFD.JPEGInterchangeFormatLength, None)
                 if load_jpeg_data and start not in (None, 0) and length is not None:
-                    if (not isinstance(start, numbers.Integral) or not isinstance(length, numbers.Integral) or
-                            start < 8 or length < 0 or start + length > len(self.tiftag)):
-                        raise InvalidImageDataError("Invalid JPEG data offset or length.")
-                    node["jpeg_data"] = self.tiftag[start:start + length]
-            nodes[pointer] = {"kind": kind, "node": node, "next": following,
-                              "subifds": children, "links": links}
+                    if (
+                        not isinstance(start, numbers.Integral)
+                        or not isinstance(length, numbers.Integral)
+                        or start < 8
+                        or length < 0
+                        or start + length > len(self.tiftag)
+                    ):
+                        raise InvalidImageDataError(
+                            "Invalid JPEG data offset or length."
+                        )
+                    node["jpeg_data"] = self.tiftag[start : start + length]
+            nodes[pointer] = {
+                "kind": kind,
+                "node": node,
+                "next": following,
+                "subifds": children,
+                "links": links,
+            }
             active.add(pointer)
             stack.append((pointer, kind, True))
             targets = [(child, "Image") for child in children]
@@ -219,22 +252,24 @@ class _ExifReader(object):
             for name, target in entry["links"].items():
                 node[name] = nodes[target]["node"]
             if key_is_name:
-                node["tags"] = {TAGS[entry["kind"]][tag]["name"]: value
-                                for tag, value in node["tags"].items()}
+                node["tags"] = {
+                    TAGS[entry["kind"]][tag]["name"]: value
+                    for tag, value in node["tags"].items()
+                }
         return chain(root)
 
     def __init__(self, data, data_is_bytes=False):
         # Prevents "UnicodeWarning: Unicode equal comparison failed" warnings on Python 2
-        maybe_image = sys.version_info >= (3,0,0) or isinstance(data, str)
+        maybe_image = sys.version_info >= (3, 0, 0) or isinstance(data, str)
 
         data_type = _is_image_data(data) if maybe_image else None
         if data_type == "jpeg":
-                segments = split_into_segments(data)
-                app1 = get_exif_seg(segments)
-                if app1:
-                    self.tiftag = app1[10:]
-                else:
-                    self.tiftag = None
+            segments = split_into_segments(data)
+            app1 = get_exif_seg(segments)
+            if app1:
+                self.tiftag = app1[10:]
+            else:
+                self.tiftag = None
         elif data_type == "tiff":
             self.tiftag = data
         elif data_type == "webp":
@@ -244,9 +279,11 @@ class _ExifReader(object):
         elif data_type == "exif":
             self.tiftag = data[6:]
         elif data_is_bytes:
-            raise InvalidImageDataError("Given data is neither JPEG, TIFF, WebP, nor PNG.")
+            raise InvalidImageDataError(
+                "Given data is neither JPEG, TIFF, WebP, nor PNG."
+            )
         else:
-            with open(data, 'rb') as f:
+            with open(data, "rb") as f:
                 magic_number = f.read(2)
             if magic_number == b"\xff\xd8":  # JPEG
                 app1 = read_exif_from_file(data)
@@ -255,27 +292,30 @@ class _ExifReader(object):
                 else:
                     self.tiftag = None
             elif magic_number in (b"\x49\x49", b"\x4d\x4d"):  # TIFF
-                with open(data, 'rb') as f:
+                with open(data, "rb") as f:
                     self.tiftag = f.read()
             else:
-                with open(data, 'rb') as f:
+                with open(data, "rb") as f:
                     header = f.read(12)
-                if header[0:4] == b"RIFF"and header[8:12] == b"WEBP":
-                    with open(data, 'rb') as f:
+                if header[0:4] == b"RIFF" and header[8:12] == b"WEBP":
+                    with open(data, "rb") as f:
                         file_data = f.read()
                     self.tiftag = _webp.get_exif(file_data)
                 elif header[0:8] == _png.PNG_SIGNATURE:
-                    with open(data, 'rb') as f:
+                    with open(data, "rb") as f:
                         self.tiftag = _png.get_exif(f.read())
                 else:
-                    raise InvalidImageDataError("Given file is neither JPEG, TIFF, WebP, nor PNG.")
+                    raise InvalidImageDataError(
+                        "Given file is neither JPEG, TIFF, WebP, nor PNG."
+                    )
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
         ifd_dict = {}
         if pointer < 0 or pointer + 2 > len(self.tiftag):
             raise InvalidImageDataError("Invalid IFD offset.")
-        tag_count = struct.unpack(self.endian_mark + "H",
-                                  self.tiftag[pointer: pointer+2])[0]
+        tag_count = struct.unpack(
+            self.endian_mark + "H", self.tiftag[pointer : pointer + 2]
+        )[0]
         offset = pointer + 2
         # Only the entry table is required for nested IFDs. The trailing
         # next-IFD pointer is meaningful for the 0th IFD and may be absent
@@ -291,25 +331,27 @@ class _ExifReader(object):
             t = ifd_name
         for x in range(tag_count):
             pointer = offset + 12 * x
-            tag = struct.unpack(self.endian_mark + "H",
-                       self.tiftag[pointer: pointer+2])[0]
-            value_type = struct.unpack(self.endian_mark + "H",
-                         self.tiftag[pointer + 2: pointer + 4])[0]
-            value_num = struct.unpack(self.endian_mark + "L",
-                                      self.tiftag[pointer + 4: pointer + 8]
-                                      )[0]
-            value = self.tiftag[pointer+8: pointer+12]
+            tag = struct.unpack(
+                self.endian_mark + "H", self.tiftag[pointer : pointer + 2]
+            )[0]
+            value_type = struct.unpack(
+                self.endian_mark + "H", self.tiftag[pointer + 2 : pointer + 4]
+            )[0]
+            value_num = struct.unpack(
+                self.endian_mark + "L", self.tiftag[pointer + 4 : pointer + 8]
+            )[0]
+            value = self.tiftag[pointer + 8 : pointer + 12]
             v_set = (value_type, value_num, value, tag)
             if tag in TAGS[t]:
                 ifd_dict[tag] = self.convert_value(v_set)
             elif read_unknown:
                 ifd_dict[tag] = (v_set[0], v_set[1], v_set[2], self.tiftag)
-            #else:
+            # else:
             #    pass
 
         if ifd_name == "0th":
             pointer = offset + 12 * tag_count
-            ifd_dict["first_ifd_pointer"] = self.tiftag[pointer:pointer + 4]
+            ifd_dict["first_ifd_pointer"] = self.tiftag[pointer : pointer + 4]
         return ifd_dict
 
     def convert_value(self, val):
@@ -319,13 +361,24 @@ class _ExifReader(object):
         value = val[2]
 
         type_size = {
-            TYPES.Byte: 1, TYPES.Ascii: 1, TYPES.Short: 2,
-            TYPES.Long: 4, TYPES.Ifd: 4, TYPES.Rational: 8, TYPES.SByte: 1,
-            TYPES.Undefined: 1, TYPES.SShort: 2, TYPES.SLong: 4,
-            TYPES.SRational: 8, TYPES.Float: 4, TYPES.DFloat: 8,
+            TYPES.Byte: 1,
+            TYPES.Ascii: 1,
+            TYPES.Short: 2,
+            TYPES.Long: 4,
+            TYPES.Ifd: 4,
+            TYPES.Rational: 8,
+            TYPES.SByte: 1,
+            TYPES.Undefined: 1,
+            TYPES.SShort: 2,
+            TYPES.SLong: 4,
+            TYPES.SRational: 8,
+            TYPES.Float: 4,
+            TYPES.DFloat: 8,
         }.get(t)
         if type_size is None:
-            raise InvalidImageDataError("Exif might be wrong. Got incorrect value type to decode.")
+            raise InvalidImageDataError(
+                "Exif might be wrong. Got incorrect value type to decode."
+            )
         value_size = length * type_size
         if value_size > 4:
             pointer = struct.unpack(self.endian_mark + "L", value)[0]
@@ -334,117 +387,151 @@ class _ExifReader(object):
         elif value_size > 4 or length < 0:
             raise InvalidImageDataError("Invalid Exif value size.")
 
-        if t == TYPES.Byte: # BYTE
+        if t == TYPES.Byte:  # BYTE
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack("B" * length,
-                                     self.tiftag[pointer: pointer + length])
+                data = struct.unpack(
+                    "B" * length, self.tiftag[pointer : pointer + length]
+                )
             else:
                 data = struct.unpack("B" * length, value[0:length])
-        elif t == TYPES.Ascii: # ASCII
+        elif t == TYPES.Ascii:  # ASCII
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = self.tiftag[pointer: pointer+length]
+                data = self.tiftag[pointer : pointer + length]
             else:
-                data = value[0: length]
+                data = value[0:length]
             # Some writers omit the terminator; never read beyond the count.
             if data.endswith(b"\x00"):
                 data = data[:-1]
-        elif t == TYPES.Short: # SHORT
+        elif t == TYPES.Short:  # SHORT
             if length > 2:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack(self.endian_mark + "H" * length,
-                                     self.tiftag[pointer: pointer+length*2])
+                data = struct.unpack(
+                    self.endian_mark + "H" * length,
+                    self.tiftag[pointer : pointer + length * 2],
+                )
             else:
-                data = struct.unpack(self.endian_mark + "H" * length,
-                                     value[0:length * 2])
-        elif t in (TYPES.Long, TYPES.Ifd): # LONG or IFD offset
+                data = struct.unpack(
+                    self.endian_mark + "H" * length, value[0 : length * 2]
+                )
+        elif t in (TYPES.Long, TYPES.Ifd):  # LONG or IFD offset
             if length > 1:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack(self.endian_mark + "L" * length,
-                                     self.tiftag[pointer: pointer+length*4])
+                data = struct.unpack(
+                    self.endian_mark + "L" * length,
+                    self.tiftag[pointer : pointer + length * 4],
+                )
             else:
-                data = struct.unpack(self.endian_mark + "L" * length,
-                                     value)
-        elif t == TYPES.Rational: # RATIONAL
+                data = struct.unpack(self.endian_mark + "L" * length, value)
+        elif t == TYPES.Rational:  # RATIONAL
             pointer = struct.unpack(self.endian_mark + "L", value)[0]
             if length > 1:
                 data = tuple(
-                    (struct.unpack(self.endian_mark + "L",
-                                   self.tiftag[pointer + x * 8:
-                                       pointer + 4 + x * 8])[0],
-                     struct.unpack(self.endian_mark + "L",
-                                   self.tiftag[pointer + 4 + x * 8:
-                                       pointer + 8 + x * 8])[0])
+                    (
+                        struct.unpack(
+                            self.endian_mark + "L",
+                            self.tiftag[pointer + x * 8 : pointer + 4 + x * 8],
+                        )[0],
+                        struct.unpack(
+                            self.endian_mark + "L",
+                            self.tiftag[pointer + 4 + x * 8 : pointer + 8 + x * 8],
+                        )[0],
+                    )
                     for x in range(length)
                 )
             else:
-                data = (struct.unpack(self.endian_mark + "L",
-                                      self.tiftag[pointer: pointer + 4])[0],
-                        struct.unpack(self.endian_mark + "L",
-                                      self.tiftag[pointer + 4: pointer + 8]
-                                      )[0])
-        elif t == TYPES.SByte: # SIGNED BYTES
+                data = (
+                    struct.unpack(
+                        self.endian_mark + "L", self.tiftag[pointer : pointer + 4]
+                    )[0],
+                    struct.unpack(
+                        self.endian_mark + "L", self.tiftag[pointer + 4 : pointer + 8]
+                    )[0],
+                )
+        elif t == TYPES.SByte:  # SIGNED BYTES
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack("b" * length,
-                                     self.tiftag[pointer: pointer + length])
+                data = struct.unpack(
+                    "b" * length, self.tiftag[pointer : pointer + length]
+                )
             else:
                 data = struct.unpack("b" * length, value[0:length])
-        elif t == TYPES.Undefined: # UNDEFINED BYTES
+        elif t == TYPES.Undefined:  # UNDEFINED BYTES
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = self.tiftag[pointer: pointer+length]
+                data = self.tiftag[pointer : pointer + length]
             else:
                 data = value[0:length]
-        elif t == TYPES.SShort: # SIGNED SHORT
+        elif t == TYPES.SShort:  # SIGNED SHORT
             if length > 2:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack(self.endian_mark + "h" * length,
-                                     self.tiftag[pointer: pointer+length*2])
+                data = struct.unpack(
+                    self.endian_mark + "h" * length,
+                    self.tiftag[pointer : pointer + length * 2],
+                )
             else:
-                data = struct.unpack(self.endian_mark + "h" * length,
-                                     value[0:length * 2])
-        elif t == TYPES.SLong: # SLONG
+                data = struct.unpack(
+                    self.endian_mark + "h" * length, value[0 : length * 2]
+                )
+        elif t == TYPES.SLong:  # SLONG
             if length > 1:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack(self.endian_mark + "l" * length,
-                                     self.tiftag[pointer: pointer+length*4])
+                data = struct.unpack(
+                    self.endian_mark + "l" * length,
+                    self.tiftag[pointer : pointer + length * 4],
+                )
             else:
-                data = struct.unpack(self.endian_mark + "l" * length,
-                                     value)
-        elif t == TYPES.SRational: # SRATIONAL
+                data = struct.unpack(self.endian_mark + "l" * length, value)
+        elif t == TYPES.SRational:  # SRATIONAL
             pointer = struct.unpack(self.endian_mark + "L", value)[0]
             if length > 1:
                 data = tuple(
-                  (struct.unpack(self.endian_mark + "l",
-                   self.tiftag[pointer + x * 8: pointer + 4 + x * 8])[0],
-                   struct.unpack(self.endian_mark + "l",
-                   self.tiftag[pointer + 4 + x * 8: pointer + 8 + x * 8])[0])
-                  for x in range(length)
+                    (
+                        struct.unpack(
+                            self.endian_mark + "l",
+                            self.tiftag[pointer + x * 8 : pointer + 4 + x * 8],
+                        )[0],
+                        struct.unpack(
+                            self.endian_mark + "l",
+                            self.tiftag[pointer + 4 + x * 8 : pointer + 8 + x * 8],
+                        )[0],
+                    )
+                    for x in range(length)
                 )
             else:
-                data = (struct.unpack(self.endian_mark + "l",
-                                      self.tiftag[pointer: pointer + 4])[0],
-                        struct.unpack(self.endian_mark + "l",
-                                      self.tiftag[pointer + 4: pointer + 8]
-                                      )[0])
-        elif t == TYPES.Float: # FLOAT
+                data = (
+                    struct.unpack(
+                        self.endian_mark + "l", self.tiftag[pointer : pointer + 4]
+                    )[0],
+                    struct.unpack(
+                        self.endian_mark + "l", self.tiftag[pointer + 4 : pointer + 8]
+                    )[0],
+                )
+        elif t == TYPES.Float:  # FLOAT
             if length > 1:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
-                data = struct.unpack(self.endian_mark + "f" * length,
-                                     self.tiftag[pointer: pointer+length*4])
+                data = struct.unpack(
+                    self.endian_mark + "f" * length,
+                    self.tiftag[pointer : pointer + length * 4],
+                )
             else:
-                data = struct.unpack(self.endian_mark + "f" * length,
-                                     value)
-        elif t == TYPES.DFloat: # DOUBLE
+                data = struct.unpack(self.endian_mark + "f" * length, value)
+        elif t == TYPES.DFloat:  # DOUBLE
             pointer = struct.unpack(self.endian_mark + "L", value)[0]
-            data = struct.unpack(self.endian_mark + "d" * length,
-                                    self.tiftag[pointer: pointer+length*8])
+            data = struct.unpack(
+                self.endian_mark + "d" * length,
+                self.tiftag[pointer : pointer + length * 8],
+            )
         else:
-            raise ValueError("Exif might be wrong. Got incorrect value " +
-                             "type to decode.\n" +
-                             "tag: " + str(val[3]) + "\ntype: " + str(t))
+            raise ValueError(
+                "Exif might be wrong. Got incorrect value "
+                + "type to decode.\n"
+                + "tag: "
+                + str(val[3])
+                + "\ntype: "
+                + str(t)
+            )
 
         if isinstance(data, tuple) and (len(data) == 1):
             return data[0]
@@ -456,6 +543,7 @@ def _get_key_name_dict(exif_dict):
     new_dict = {"thumbnail": exif_dict["thumbnail"]}
     for name in ("0th", "Exif", "1st", "GPS", "Interop", "GlobalParameters"):
         if name in exif_dict:
-            new_dict[name] = {TAGS[name][tag]["name"]: value
-                              for tag, value in exif_dict[name].items()}
+            new_dict[name] = {
+                TAGS[name][tag]["name"]: value for tag, value in exif_dict[name].items()
+            }
     return new_dict

@@ -1,9 +1,9 @@
 import io
 
-from ._common import *
-from ._common import _is_image_data
+from ._common import get_exif_seg, split_into_segments, _is_image_data
 from piexif import _webp
 from piexif import _png
+
 
 def remove(src, new_file=None):
     """
@@ -34,7 +34,7 @@ def _remove(src, new_file, output_is_file):
     if not output_is_file:
         src_data = src
     else:
-        with open(src, 'rb') as f:
+        with open(src, "rb") as f:
             src_data = f.read()
     file_type = _is_image_data(src_data)
 
@@ -50,7 +50,7 @@ def _remove(src, new_file, output_is_file):
             new_data = _webp.remove(src_data)
         except ValueError:
             new_data = src_data
-        except e:
+        except Exception as e:
             print(e.args)
             raise ValueError("Error occurred.")
     elif file_type == "png":

@@ -3,7 +3,15 @@ import struct
 import unittest
 
 from piexif._dump import dump
-from piexif._webp import get_exif, get_file_header, insert, merge_chunks, remove, set_vp8x, split
+from piexif._webp import (
+    get_exif,
+    get_file_header,
+    insert,
+    merge_chunks,
+    remove,
+    set_vp8x,
+    split,
+)
 
 
 class WebpCanvasTests(unittest.TestCase):
@@ -15,8 +23,10 @@ class WebpCanvasTests(unittest.TestCase):
     def check_canvas(self, original, result):
         before, after = split(original), split(result)
         self.assertEqual(after[0]["data"][4:10], before[0]["data"][4:10])
-        self.assertEqual([c for c in after if c["fourcc"] == b"ANMF"],
-                         [c for c in before if c["fourcc"] == b"ANMF"])
+        self.assertEqual(
+            [c for c in after if c["fourcc"] == b"ANMF"],
+            [c for c in before if c["fourcc"] == b"ANMF"],
+        )
 
     def test_insert_preserves_animation_canvas(self):
         exif = dump({})[6:]
@@ -57,8 +67,10 @@ class WebpCanvasTests(unittest.TestCase):
         for result in (inserted, remove(original), remove(inserted)):
             self.check_canvas(original, result)
             # Only the EXIF presence flag may change.
-            self.assertEqual(ord(split(result)[0]["data"][:1]) & ~0x08,
-                             ord(split(original)[0]["data"][:1]) & ~0x08)
+            self.assertEqual(
+                ord(split(result)[0]["data"][:1]) & ~0x08,
+                ord(split(original)[0]["data"][:1]) & ~0x08,
+            )
         self.assertIsNone(get_exif(remove(original)))
         self.assertIsNone(get_exif(remove(inserted)))
 
@@ -72,8 +84,9 @@ class WebpCanvasTests(unittest.TestCase):
         for filename, fourcc in (("tool1.webp", b"VP8 "), ("pil2.webp", b"VP8L")):
             path = os.path.join(os.path.dirname(__file__), "images", filename)
             with open(path, "rb") as source:
-                chunks = [chunk for chunk in split(source.read())
-                          if chunk["fourcc"] == fourcc]
+                chunks = [
+                    chunk for chunk in split(source.read()) if chunk["fourcc"] == fourcc
+                ]
             self.assertEqual(len(chunks), 1)
             data = get_file_header(chunks) + merge_chunks(chunks)
             self.assertIsNone(get_exif(data))

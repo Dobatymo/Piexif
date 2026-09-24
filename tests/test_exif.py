@@ -10,9 +10,7 @@ class ExifTagTests(unittest.TestCase):
     def test_dump_negative_timezone_offset(self):
         exif_dict = {"0th": {ImageIFD.TimeZoneOffset: -5}}
         exif_bytes = dump(exif_dict)
-        self.assertEqual(
-            load(exif_bytes)["0th"][ImageIFD.TimeZoneOffset], -5
-        )
+        self.assertEqual(load(exif_bytes)["0th"][ImageIFD.TimeZoneOffset], -5)
 
     def test_camera_label(self):
         self.assertEqual(ImageIFD.CameraLabel, 51105)
