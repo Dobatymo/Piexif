@@ -7,11 +7,51 @@ from piexif._webp import (
     get_exif,
     get_file_header,
     insert,
+    insert_exif_into_chunks,
     merge_chunks,
     remove,
     set_vp8x,
     split,
 )
+
+
+def chunk(fourcc, data):
+    return {
+        "fourcc": fourcc,
+        "length_bytes": struct.pack("<L", len(data)),
+        "data": data,
+    }
+
+
+def webp(chunks):
+    payload = merge_chunks(chunks)
+    return b"RIFF" + struct.pack("<L", len(payload) + 4) + b"WEBP" + payload
+
+
+class WebpExifChunkTests(unittest.TestCase):
+    def setUp(self):
+        self.chunks = [
+            chunk(b"VP8X", b"\x00" * 10),
+            chunk(b"EXIF", b"old"),
+            chunk(b"EXIF", b"old2"),
+            chunk(b"VP8 ", b""),
+        ]
+
+    def test_insert_replaces_all_exif_chunks_without_mutating_input(self):
+        original = [dict(value) for value in self.chunks]
+
+        result = insert_exif_into_chunks(self.chunks, b"new")
+
+        self.assertEqual(self.chunks, original)
+        self.assertEqual(
+            [value["data"] for value in result if value["fourcc"] == b"EXIF"],
+            [b"new"],
+        )
+
+    def test_remove_removes_all_exif_chunks(self):
+        result = remove(webp(self.chunks))
+
+        self.assertIsNone(get_exif(result))
 
 
 class WebpCanvasTests(unittest.TestCase):

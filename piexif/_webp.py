@@ -150,8 +150,7 @@ def set_vp8x(chunks):
     width_minus_one = width - 1
     height_minus_one = height - 1
 
-    if chunks[0]["fourcc"] == b"VP8X":
-        chunks.pop(0)
+    image_chunks = chunks[1:] if chunks[0]["fourcc"] == b"VP8X" else list(chunks)
 
     header_bytes = b"VP8X"
     length_bytes = b"\x0a\x00\x00\x00"
@@ -167,9 +166,7 @@ def set_vp8x(chunks):
         "length_bytes": length_bytes,
         "data": data_bytes,
     }
-    chunks.insert(0, vp8x_chunk)
-
-    return chunks
+    return [vp8x_chunk] + image_chunks
 
 
 def get_file_header(chunks):
@@ -235,9 +232,7 @@ def insert_exif_into_chunks(chunks, exif_bytes):
     xmp_index = None
     animation_index = None
 
-    for index, chunk in enumerate(chunks):
-        if chunk["fourcc"] == b"EXIF":
-            chunks.pop(index)
+    chunks = [chunk for chunk in chunks if chunk["fourcc"] != b"EXIF"]
 
     for index, chunk in enumerate(chunks):
         if chunk["fourcc"] == b"XMP ":
@@ -245,11 +240,11 @@ def insert_exif_into_chunks(chunks, exif_bytes):
         elif chunk["fourcc"] == b"ANIM":
             animation_index = index
     if xmp_index is not None:
-        chunks.insert(xmp_index, exif_chunk)
+        chunks = chunks[:xmp_index] + [exif_chunk] + chunks[xmp_index:]
     elif animation_index is not None:
-        chunks.insert(animation_index, exif_chunk)
+        chunks = chunks[:animation_index] + [exif_chunk] + chunks[animation_index:]
     else:
-        chunks.append(exif_chunk)
+        chunks = chunks + [exif_chunk]
     return chunks
 
 
@@ -264,10 +259,7 @@ def insert(webp_bytes, exif_bytes):
 
 
 def remove(webp_bytes):
-    chunks = split(webp_bytes)
-    for index, chunk in enumerate(chunks):
-        if chunk["fourcc"] == b"EXIF":
-            chunks.pop(index)
+    chunks = [chunk for chunk in split(webp_bytes) if chunk["fourcc"] != b"EXIF"]
     chunks = set_vp8x(chunks)
     file_header = get_file_header(chunks)
     merged = merge_chunks(chunks)
