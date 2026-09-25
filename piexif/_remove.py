@@ -1,6 +1,6 @@
 import io
 
-from ._common import get_exif_seg, split_into_segments, _is_image_data
+from ._common import _is_image_data, merge_segments, split_into_segments
 from piexif import _webp
 from piexif import _png
 
@@ -40,11 +40,7 @@ def _remove(src, new_file, output_is_file):
 
     if file_type == "jpeg":
         segments = split_into_segments(src_data)
-        exif = get_exif_seg(segments)
-        if exif:
-            new_data = src_data.replace(exif, b"")
-        else:
-            new_data = src_data
+        new_data = merge_segments(segments, None)
     elif file_type == "webp":
         try:
             new_data = _webp.remove(src_data)

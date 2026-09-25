@@ -1,3 +1,4 @@
+import io
 import os
 import struct
 import tempfile
@@ -9,6 +10,7 @@ from piexif._common import (
     read_exif_from_file,
     split_into_segments,
 )
+from piexif._remove import remove_bytes
 
 
 def segment(marker, payload):
@@ -59,6 +61,12 @@ class MergeSegmentsTests(unittest.TestCase):
         segments = [b"\xff\xd8", self.old + b"\xff\xff", self.tail]
         expected = b"".join([b"\xff\xd8", b"\xff\xff", self.tail])
         self.assertEqual(merge_segments(segments, None), expected)
+
+    def test_remove_bytes_preserves_trailing_fill_bytes(self):
+        source = b"\xff\xd8" + self.old + b"\xff\xff" + self.tail
+        output = io.BytesIO()
+        remove_bytes(source, output)
+        self.assertEqual(output.getvalue(), b"\xff\xd8" + b"\xff\xff" + self.tail)
 
     def test_default_preserves_original_bytes(self):
         segments = [b"\xff\xd8", self.app0, self.old, self.tail]
