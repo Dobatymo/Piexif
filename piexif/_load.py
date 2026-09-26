@@ -117,6 +117,12 @@ def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_byte
             return [{"tags": {}, "subifds": []}]
         return exif_dict
 
+    if len(exifReader.tiftag) < 8 or exifReader.tiftag[:4] not in (
+        b"II\x2a\x00",
+        b"MM\x00\x2a",
+    ):
+        raise InvalidImageDataError("Invalid TIFF header.")
+
     if exifReader.tiftag[0:2] == LITTLE_ENDIAN:
         exifReader.endian_mark = "<"
     else:

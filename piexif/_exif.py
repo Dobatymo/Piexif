@@ -217,6 +217,7 @@ TAGS = {
         51008: {"name": "OpcodeList1", "type": TYPES.Undefined},
         51009: {"name": "OpcodeList2", "type": TYPES.Undefined},
         51022: {"name": "OpcodeList3", "type": TYPES.Undefined},
+        51041: {"name": "NoiseProfile", "type": TYPES.DFloat},
         51105: {"name": "CameraLabel", "type": TYPES.Ascii},
         51112: {"name": "RawToPreviewGain", "type": TYPES.DFloat},
         60606: {"name": "ZZZTestSlong1", "type": TYPES.SLong},

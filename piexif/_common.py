@@ -12,7 +12,7 @@ def _is_image_data(data):
         return "webp"
     if data[0:8] == b"\x89PNG\r\n\x1a\n":
         return "png"
-    if data[0:4] == b"Exif":
+    if data[0:6] == b"Exif\x00\x00":
         return "exif"
     return None
 
@@ -57,18 +57,23 @@ def read_exif_from_file(filename):
             marker = f.read(1)
             while marker == b"\xff":
                 marker = f.read(1)
-            if not marker or marker == b"\xda":
+            if not marker or marker in (b"\xd9", b"\xda"):
                 break
+            # TEM, restart markers, and SOI have no length field.
+            if marker == b"\x01" or b"\xd0" <= marker <= b"\xd8":
+                continue
 
             length_bytes = f.read(2)
             if len(length_bytes) != 2:
-                break
+                raise InvalidImageDataError("Truncated JPEG segment length.")
             length = struct.unpack(">H", length_bytes)[0]
             if length < 2:
-                break
+                raise InvalidImageDataError("Invalid JPEG segment length.")
 
             segment_data = f.read(length - 2)
-            if marker == b"\xe1" and segment_data[:4] == b"Exif":
+            if len(segment_data) != length - 2:
+                raise InvalidImageDataError("Truncated JPEG segment.")
+            if marker == b"\xe1" and segment_data[:6] == b"Exif\x00\x00":
                 return b"\xff" + marker + length_bytes + segment_data
 
     return None

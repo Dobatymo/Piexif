@@ -100,6 +100,59 @@ class MergeSegmentsTests(unittest.TestCase):
 
 
 class SplitSegmentsTests(unittest.TestCase):
+    def test_file_reader_rejects_invalid_segment_lengths(self):
+        exif = piexif.dump({"0th": {piexif.ImageIFD.Make: b"camera"}})
+        descriptor, filename = tempfile.mkstemp()
+        os.close(descriptor)
+        self.addCleanup(os.remove, filename)
+        for segment_data in (
+            b"\xff\xe1",
+            b"\xff\xe1\x00",
+            b"\xff\xe1\x00\x00",
+            b"\xff\xe1\x00\x01",
+            b"\xff\xe1" + struct.pack(">H", len(exif) + 102) + exif,
+            b"\xff\xfe\x00\x05ab",
+        ):
+            with open(filename, "wb") as output:
+                output.write(b"\xff\xd8" + segment_data)
+            for reader in (piexif.load_file, piexif.load_ifds_file):
+                with self.assertRaises(piexif.InvalidImageDataError):
+                    reader(filename)
+
+    def test_file_reader_handles_lengthless_markers(self):
+        exif = segment(b"\xff\xe1", piexif.dump({}))
+        descriptor, filename = tempfile.mkstemp()
+        os.close(descriptor)
+        self.addCleanup(os.remove, filename)
+        for metadata in (b"", exif):
+            with open(filename, "wb") as output:
+                output.write(
+                    b"\xff\xd8\xff\x01"
+                    + segment(b"\xff\xe0", b"")
+                    + metadata
+                    + b"\xff\xd9"
+                )
+            self.assertEqual(read_exif_from_file(filename), metadata or None)
+
+    def test_file_reader_ignores_incomplete_exif_identifiers(self):
+        lookalikes = b"".join(
+            segment(b"\xff\xe1", payload)
+            for payload in (b"ExifXXjunk", b"Exif\x00Xjunk", b"Exif", b"Exif\x00")
+        )
+        exif = segment(
+            b"\xff\xe1", piexif.dump({"0th": {piexif.ImageIFD.Make: b"camera"}})
+        )
+        tail = b"\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00\xff\xd9"
+        descriptor, filename = tempfile.mkstemp()
+        os.close(descriptor)
+        self.addCleanup(os.remove, filename)
+        for valid_exif in (b"", exif):
+            source = b"\xff\xd8" + lookalikes + valid_exif + tail
+            with open(filename, "wb") as output:
+                output.write(source)
+            self.assertEqual(read_exif_from_file(filename), valid_exif or None)
+            self.assertEqual(piexif.load_file(filename), piexif.load_bytes(source))
+
     def _source_with_fill_bytes(self):
         app0 = segment(b"\xff\xe0", b"JFIF\x00")
         exif = segment(b"\xff\xe1", b"Exif\x00\x00data")

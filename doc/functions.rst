@@ -42,9 +42,22 @@ load_file
 
    Reads metadata from a filename. The argument is always treated as a path.
 
-``load()`` remains backward compatible with its historical auto-detection,
-including ambiguous byte strings. New code should use ``load_bytes()`` for
-in-memory data and ``load_file()`` for paths.
+Standalone metadata bytes may start with the complete six-byte ``Exif\x00\x00``
+prefix or directly with a TIFF header. The EXIF prefix is required for JPEG
+APP1 identification; PNG and WebP metadata payloads use the TIFF header directly.
+
+``load()`` retains automatic detection, including ambiguous byte strings.
+Bytes with an incomplete or incorrect EXIF prefix are unrecognized and may be
+interpreted as filenames by auto-detecting APIs. Explicit byte loaders reject
+them. New code should use ``load_bytes()`` for in-memory data and ``load_file()``
+for paths.
+
+Malformed TIFF headers raise ``InvalidImageDataError``: the header must contain
+eight bytes, a valid byte-order marker, and the classic TIFF magic value 42.
+JPEG file loading also raises ``InvalidImageDataError`` for invalid or truncated
+segment lengths encountered while searching for EXIF. It stops when EXIF is
+found, image scan data begins, or the end-of-image marker is reached; it does
+not validate the entire JPEG image.
 
 ::
 

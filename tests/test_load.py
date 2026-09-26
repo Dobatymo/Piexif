@@ -25,6 +25,27 @@ class LoadValidationTests(unittest.TestCase):
         with self.assertRaises(InvalidImageDataError):
             load_bytes(b"not a filename")
 
+    def test_byte_loaders_require_complete_exif_prefix(self):
+        exif = dump({"0th": {piexif.ImageIFD.Make: b"camera"}})
+        tiff = exif[6:]
+        for reader in (load_bytes, piexif.load_ifds_bytes):
+            self.assertEqual(reader(exif), reader(tiff))
+            for data in (b"ExifXX" + tiff, b"Exif\x00X" + tiff, b"Exif", b"Exif\x00"):
+                with self.assertRaises(InvalidImageDataError):
+                    reader(data)
+
+    def test_loaders_reject_invalid_tiff_headers(self):
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            tiff = marker + struct.pack(endian + "HIHI", 42, 8, 0, 0)
+            invalid = [tiff[:length] for length in range(8)]
+            invalid += [b"ZZ" + tiff[2:], marker + b"xx" + tiff[4:]]
+            for reader in (load_bytes, piexif.load_ifds_bytes):
+                for header in invalid:
+                    for payload in (header, b"Exif\x00\x00" + header):
+                        with self.assertRaises(InvalidImageDataError):
+                            reader(payload)
+                self.assertEqual(reader(tiff), reader(b"Exif\x00\x00" + tiff))
+
     def test_load_file_reads_a_filename(self):
         data = self.mrc_data(">", b"MM")
         path = self._testMethodName + ".tif"
