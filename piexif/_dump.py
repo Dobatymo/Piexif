@@ -407,6 +407,8 @@ def _rational_values(raw_value, signed):
 
 
 def _value_to_bytes(raw_value, value_type, offset):
+    if value_type not in (TYPES.Ascii, TYPES.Undefined) and len(raw_value) == 0:
+        return b"\x00" * 4, b"\x00" * 4, b""
     four_bytes_over = b""
     value_str = b""
 

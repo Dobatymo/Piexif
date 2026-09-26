@@ -59,6 +59,11 @@ segment lengths encountered while searching for EXIF. It stops when EXIF is
 found, image scan data begins, or the end-of-image marker is reached; it does
 not validate the entire JPEG image.
 
+Zero-count numeric fields load as empty tuples; zero-count ASCII and UNDEFINED
+fields load as empty bytes. Their unused value slots are ignored. IFD offsets
+must be integers pointing beyond the TIFF header to an in-bounds directory;
+invalid offsets raise ``InvalidImageDataError`` in both loading APIs.
+
 ::
 
     exif_dict = piexif.load("foo.jpg")
@@ -129,6 +134,9 @@ dump
 
    Returns EXIF bytes from dictionaries with numeric tag IDs. These bytes can
    be passed to ``insert()``; they are not a complete TIFF or JPEG image file.
+
+   Empty numeric sequences are encoded with count zero and a complete four-byte
+   value slot. This also applies to ``dump_ifds()``.
 
    :param exif_dict: Standard Exif dictionaries with numeric tag IDs.
    :return: Exif

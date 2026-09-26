@@ -2,14 +2,50 @@ import copy
 import struct
 import unittest
 
-from piexif._dump import dump
+from piexif._dump import dump, dump_ifds
 from piexif._exceptions import InvalidImageDataError
 from piexif._exif import ExifIFD, GPSIFD, ImageIFD, InteropIFD
-from piexif._load import load
+from piexif._load import load, load_ifds_bytes
 
 
 class DumpValidationTests(unittest.TestCase):
     thumbnail = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00" b"\xff\xd9"
+
+    def test_empty_numeric_values_preserve_entry_layout(self):
+        for tag, kind in (
+            (700, 1),
+            (258, 3),
+            (256, 4),
+            (282, 5),
+            (60608, 6),
+            (60609, 8),
+            (60606, 9),
+            (50715, 10),
+            (50938, 11),
+            (60610, 12),
+        ):
+            for empty in ((), []):
+                tags = {tag: empty, ImageIFD.Make: b"camera"}
+                for encoded in (
+                    dump({"0th": tags}),
+                    dump_ifds([{"tags": tags, "subifds": []}]),
+                ):
+                    raw = encoded[6:]
+                    self.assertEqual(struct.unpack_from(">H", raw, 8)[0], 2)
+                    entries = dict(
+                        (entry[0], entry[1:])
+                        for entry in (
+                            struct.unpack_from(">HHII", raw, offset)
+                            for offset in (10, 22)
+                        )
+                    )
+                    self.assertEqual(entries[tag], (kind, 0, 0))
+                    self.assertEqual(entries[ImageIFD.Make], (2, 7, 38))
+                    self.assertEqual(raw[34:38], b"\x00" * 4)
+                    self.assertEqual(raw[38:45], b"camera\x00")
+                    expected = {tag: (), ImageIFD.Make: b"camera"}
+                    self.assertEqual(load(encoded)["0th"], expected)
+                    self.assertEqual(load_ifds_bytes(encoded)[0]["tags"], expected)
 
     def test_thumbnail_ifd_entries_are_sorted(self):
         raw = dump({"1st": {ImageIFD.XMLPacket: (1,)}, "thumbnail": self.thumbnail})[6:]

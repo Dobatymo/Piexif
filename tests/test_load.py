@@ -11,6 +11,41 @@ from piexif._load import _ExifReader, load, load_bytes, load_file, load_ifds
 
 
 class LoadValidationTests(unittest.TestCase):
+    def test_zero_count_values_ignore_the_value_slot(self):
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            for kind in range(1, 14):
+                for slot in (b"\x00" * 4, b"\xff" * 4):
+                    data = marker + struct.pack(endian + "HIH", 42, 8, 1)
+                    data += struct.pack(endian + "HHI", 270, kind, 0) + slot
+                    data += b"\x00" * 4
+                    expected = b"" if kind in (2, 7) else ()
+                    self.assertEqual(load_bytes(data)["0th"], {270: expected})
+                    self.assertEqual(
+                        piexif.load_ifds_bytes(data)[0]["tags"], {270: expected}
+                    )
+
+    def test_auxiliary_pointers_require_valid_integer_offsets(self):
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            for tag in (400, 34665, 34853, 40965):
+                for kind, count, slot in (
+                    (3, 2, struct.pack(endian + "HH", 26, 26)),
+                    (2, 4, b"abc\x00"),
+                    (11, 1, struct.pack(endian + "f", 26.0)),
+                    (4, 0, b"\x00" * 4),
+                    (4, 1, struct.pack(endian + "I", 0)),
+                    (4, 1, struct.pack(endian + "I", 7)),
+                    (4, 1, struct.pack(endian + "I", 0xFFFFFFFF)),
+                ):
+                    data = marker + struct.pack(endian + "HI", 42, 8)
+                    if tag == 40965:
+                        data += struct.pack(endian + "HHHII", 1, 34665, 4, 1, 26)
+                        data += b"\x00" * 4
+                    data += struct.pack(endian + "HHHI", 1, tag, kind, count)
+                    data += slot + b"\x00" * 4
+                    for reader in (load_bytes, piexif.load_ifds_bytes):
+                        with self.assertRaises(InvalidImageDataError):
+                            reader(data)
+
     def test_public_loader_entry_points(self):
         data = self.mrc_data(">", b"MM")
         self.assertIs(piexif.load, load)

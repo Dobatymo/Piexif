@@ -328,7 +328,11 @@ class _ExifReader(object):
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
         ifd_dict = {}
-        if pointer < 0 or pointer + 2 > len(self.tiftag):
+        if (
+            not isinstance(pointer, numbers.Integral)
+            or pointer < 8
+            or pointer + 2 > len(self.tiftag)
+        ):
             raise InvalidImageDataError("Invalid IFD offset.")
         tag_count = struct.unpack(
             self.endian_mark + "H", self.tiftag[pointer : pointer + 2]
@@ -396,6 +400,8 @@ class _ExifReader(object):
             raise InvalidImageDataError(
                 "Exif might be wrong. Got incorrect value type to decode."
             )
+        if length == 0:
+            return b"" if t in (TYPES.Ascii, TYPES.Undefined) else ()
         value_size = length * type_size
         if value_size > 4:
             pointer = struct.unpack(self.endian_mark + "L", value)[0]
