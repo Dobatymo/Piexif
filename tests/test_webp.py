@@ -1,6 +1,9 @@
 import os
 import struct
+import tempfile
 import unittest
+
+import piexif
 
 from piexif._dump import dump
 from piexif._webp import (
@@ -36,6 +39,63 @@ class WebpExifChunkTests(unittest.TestCase):
             chunk(b"EXIF", b"old2"),
             chunk(b"VP8 ", b""),
         ]
+
+    def test_loads_bare_and_prefixed_exif_without_riff_padding(self):
+        descriptor, path = tempfile.mkstemp(suffix=".webp")
+        os.close(descriptor)
+        self.addCleanup(os.remove, path)
+        for endian, marker in (("<", b"II"), (">", b"MM")):
+            for value in (b"abcd\x00", b"abcde\x00"):
+                tiff = marker + struct.pack(endian + "HIH", 42, 8, 1)
+                tiff += struct.pack(endian + "HHII", 271, 2, len(value), 26)
+                tiff += b"\x00" * 4 + value
+                for prefix in (b"", b"Exif\x00\x00"):
+                    data = webp(
+                        [
+                            chunk(b"VP8X", b"\x08" + b"\x00" * 9),
+                            chunk(b"JUNK", b"odd"),
+                            chunk(b"EXIF", prefix + tiff),
+                        ]
+                    )
+                    self.assertEqual(get_exif(data), tiff)
+                    with open(path, "wb") as output:
+                        output.write(data)
+                    for reader, source in (
+                        (piexif.load_bytes, data),
+                        (piexif.load_file, path),
+                    ):
+                        self.assertEqual(reader(source)["0th"], {271: value[:-1]})
+                    for reader, source in (
+                        (piexif.load_ifds_bytes, data),
+                        (piexif.load_ifds_file, path),
+                    ):
+                        self.assertEqual(reader(source)[0]["tags"], {271: value[:-1]})
+
+    def test_padding_and_bad_exif_prefixes_cannot_hide_invalid_metadata(self):
+        # The field declares six bytes; the last byte is missing from the TIFF.
+        tiff = b"MM" + struct.pack(">HIHHHII", 42, 8, 1, 271, 2, 6, 26)
+        tiff += b"\x00" * 4 + b"abcde"
+        descriptor, path = tempfile.mkstemp(suffix=".webp")
+        os.close(descriptor)
+        self.addCleanup(os.remove, path)
+        payloads = (tiff, b"Exif\x00\x00" + tiff, b"Exif\x00\x00")
+        payloads += tuple(
+            prefix + tiff + b"\x00" for prefix in (b"ExifXX", b"Exif\x00X")
+        )
+        for payload in payloads:
+            data = webp(
+                [chunk(b"VP8X", b"\x08" + b"\x00" * 9), chunk(b"EXIF", payload)]
+            )
+            with open(path, "wb") as output:
+                output.write(data)
+            for reader, source in (
+                (piexif.load_bytes, data),
+                (piexif.load_file, path),
+                (piexif.load_ifds_bytes, data),
+                (piexif.load_ifds_file, path),
+            ):
+                with self.assertRaises(piexif.InvalidImageDataError):
+                    reader(source)
 
     def test_insert_replaces_all_exif_chunks_without_mutating_input(self):
         original = [dict(value) for value in self.chunks]

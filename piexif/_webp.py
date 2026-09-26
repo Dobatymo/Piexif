@@ -211,12 +211,13 @@ def get_exif(data):
         pointer += CHUNK_FOURCC_LENGTH
         chunk_length_bytes = data[pointer : pointer + LENGTH_BYTES_LENGTH]
         chunk_length = struct.unpack("<L", chunk_length_bytes)[0]
-        if chunk_length % 2:
-            chunk_length += 1
         pointer += LENGTH_BYTES_LENGTH
         if fourcc == b"EXIF":
-            return data[pointer : pointer + chunk_length]
-        pointer += chunk_length
+            exif = data[pointer : pointer + chunk_length]
+            if exif.startswith(b"Exif\x00\x00"):
+                exif = exif[6:]
+            return exif
+        pointer += chunk_length + chunk_length % 2
     return None  # if there isn't exif, return None.
 
 

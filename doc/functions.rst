@@ -44,7 +44,9 @@ load_file
 
 Standalone metadata bytes may start with the complete six-byte ``Exif\x00\x00``
 prefix or directly with a TIFF header. The EXIF prefix is required for JPEG
-APP1 identification; PNG and WebP metadata payloads use the TIFF header directly.
+APP1 identification; PNG metadata payloads use the TIFF header directly.
+WebP loading accepts either a bare TIFF header or the complete six-byte EXIF
+prefix followed by TIFF data. RIFF padding is excluded from the EXIF payload.
 
 ``load()`` retains automatic detection, including ambiguous byte strings.
 Bytes with an incomplete or incorrect EXIF prefix are unrecognized and may be
