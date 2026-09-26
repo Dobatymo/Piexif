@@ -2,6 +2,20 @@ import struct
 
 from ._exceptions import InvalidImageDataError
 
+_UNSUPPORTED_IMAGE_SIGNATURES = {
+    "gif": (0, (b"GIF87a", b"GIF89a")),
+    "ico": (0, (b"\x00\x00\x01\x00",)),
+    "bmp": (0, (b"BM",)),
+    "cur": (0, (b"\x00\x00\x02\x00",)),
+    "psd": (0, (b"8BPS\x00\x01",)),
+    "psb": (0, (b"8BPS\x00\x02",)),
+    "qoi": (0, (b"qoif",)),
+    "icns": (0, (b"icns",)),
+    "heic": (4, (b"ftypheic",)),
+    "cin": (0, (b"\x80\x2a\x5f\xd7",)),
+    "flif": (0, (b"FLIF",)),
+}
+
 
 def _is_image_data(data):
     if data[0:2] == b"\xff\xd8":
@@ -14,6 +28,12 @@ def _is_image_data(data):
         return "png"
     if data[0:6] == b"Exif\x00\x00":
         return "exif"
+    for name, (offset, signatures) in _UNSUPPORTED_IMAGE_SIGNATURES.items():
+        if any(
+            data[offset : offset + len(signature)] == signature
+            for signature in signatures
+        ):
+            return name
     return None
 
 

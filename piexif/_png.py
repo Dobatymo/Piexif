@@ -3,7 +3,6 @@ import zlib
 
 from ._exceptions import InvalidImageDataError
 
-
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -21,6 +20,11 @@ def _chunks(data):
             raise InvalidImageDataError("Invalid PNG chunk length.")
         chunks.append((data[offset + 4 : offset + 8], data[offset:end]))
         offset = end
+        if chunks[-1][0] == b"IEND":
+            # Preserve the opaque trailer for edits without parsing it as PNG.
+            if offset < len(data):
+                chunks.append((None, data[offset:]))
+            break
     return chunks
 
 

@@ -3,12 +3,13 @@ import struct
 import sys
 
 from ._common import (
+    _UNSUPPORTED_IMAGE_SIGNATURES,
     _is_image_data,
     get_exif_seg,
     read_exif_from_file,
     split_into_segments,
 )
-from ._exceptions import InvalidImageDataError
+from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
 from ._exif import TAGS, TYPES, ExifIFD, ImageIFD, _IFD_POINTERS
 from piexif import _webp
 from piexif import _png
@@ -299,6 +300,10 @@ class _ExifReader(object):
             self.tiftag = _png.get_exif(data)
         elif data_type == "exif":
             self.tiftag = data[6:]
+        elif data_type in _UNSUPPORTED_IMAGE_SIGNATURES:
+            raise UnsupportedImageFormatError(
+                "Unsupported image format: {}.".format(data_type.upper())
+            )
         elif data_is_bytes:
             raise InvalidImageDataError(
                 "Given data is neither JPEG, TIFF, WebP, nor PNG."
@@ -306,6 +311,10 @@ class _ExifReader(object):
         else:
             with open(data, "rb") as f:
                 file_type = _is_image_data(f.read(12))
+                if file_type in _UNSUPPORTED_IMAGE_SIGNATURES:
+                    raise UnsupportedImageFormatError(
+                        "Unsupported image format: {}.".format(file_type.upper())
+                    )
                 if file_type in ("tiff", "webp", "png"):
                     f.seek(0)
                     file_data = f.read()

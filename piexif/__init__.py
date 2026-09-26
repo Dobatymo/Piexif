@@ -11,7 +11,7 @@ from ._dump import dump, dump_ifds
 from ._transplant import transplant, transplant_bytes, transplant_file
 from ._insert import insert, insert_bytes, insert_file
 from ._exif import TYPES, TAGS, ImageIFD, ExifIFD, GPSIFD, InteropIFD
-from ._exceptions import InvalidImageDataError
+from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
 
 
 VERSION = "1.1.3"
@@ -42,5 +42,6 @@ __all__ = [
     "GPSIFD",
     "InteropIFD",
     "InvalidImageDataError",
+    "UnsupportedImageFormatError",
     "VERSION",
 ]

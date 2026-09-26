@@ -59,10 +59,24 @@ segment lengths encountered while searching for EXIF. It stops when EXIF is
 found, image scan data begins, or the end-of-image marker is reached; it does
 not validate the entire JPEG image.
 
+PNG chunk parsing stops at ``IEND``. Bytes after it are ignored when loading
+metadata and preserved unchanged by insertion and removal. Truncated chunks
+within the PNG datastream still raise ``InvalidImageDataError``.
+
 Zero-count numeric fields load as empty tuples; zero-count ASCII and UNDEFINED
 fields load as empty bytes. Their unused value slots are ignored. IFD offsets
 must be integers pointing beyond the TIFF header to an in-bounds directory;
 invalid offsets raise ``InvalidImageDataError`` in both loading APIs.
+
+GIF, ICO, BMP, CUR, Photoshop PSD/PSB, QOI, ICNS, HEIC (``ftypheic`` at offset 4),
+Kodak Cineon (CIN), and FLIF signatures are recognized, but their metadata is
+not supported. Loading them raises
+``UnsupportedImageFormatError``, a subclass of ``InvalidImageDataError``.
+Detection uses file contents, not filename extensions. Unrecognized data retains
+its existing error behavior; errors parsing supported formats are not reclassified
+as unsupported. Signature recognition does not validate the contents of an
+unsupported format. Use explicit file loaders for byte-string filenames that
+could be mistaken for image data.
 
 ::
 

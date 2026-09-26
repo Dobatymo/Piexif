@@ -11,6 +11,68 @@ from piexif._load import _ExifReader, load, load_bytes, load_file, load_ifds
 
 
 class LoadValidationTests(unittest.TestCase):
+    def test_recognized_unsupported_formats_have_a_distinct_error(self):
+        descriptor, path = tempfile.mkstemp(suffix=".jpg")
+        os.close(descriptor)
+        self.addCleanup(os.remove, path)
+        for name, data in (
+            ("GIF", b"GIF87a"),
+            ("GIF", b"GIF89a"),
+            ("ICO", b"\x00\x00\x01\x00\x01\x00"),
+            ("BMP", b"BM"),
+            ("CUR", b"\x00\x00\x02\x00"),
+            ("PSD", b"8BPS\x00\x01"),
+            ("PSB", b"8BPS\x00\x02"),
+            ("QOI", b"qoif"),
+            ("ICNS", b"icns"),
+            ("HEIC", b"\x00\x00\x00\x18ftypheic"),
+            ("CIN", b"\x80\x2a\x5f\xd7"),
+            ("FLIF", b"FLIF"),
+        ):
+            for reader in (load, load_bytes, load_ifds, piexif.load_ifds_bytes):
+                with self.assertRaises(piexif.UnsupportedImageFormatError) as caught:
+                    reader(data)
+                self.assertIsInstance(caught.exception, InvalidImageDataError)
+                self.assertIn(name, str(caught.exception))
+            with open(path, "wb") as output:
+                output.write(data)
+            for reader in (load_file, piexif.load_ifds_file):
+                with self.assertRaises(piexif.UnsupportedImageFormatError):
+                    reader(path)
+        for data in (
+            b"GIF",
+            b"GIF88a",
+            b"\x00\x00\x01",
+            b"II",
+            b"not an image",
+            b"B",
+            b"\x00\x00\x02",
+            b"8BPS",
+            b"8BPS\x00\x03",
+            b"qoi",
+            b"qoiX",
+            b"icn",
+            b"\x00\x00\x00\x18ftyphei",
+            b"ftypheic",
+            b"\x00\x00\x00\x00\x18ftypheic",
+            b"\x00\x00\x00\x18ftypheix",
+            b"\x80\x2a\x5f",
+            b"FLI",
+        ):
+            with open(path, "wb") as output:
+                output.write(data)
+            for reader, source in (
+                (load_bytes, data),
+                (piexif.load_ifds_bytes, data),
+                (load_file, path),
+                (piexif.load_ifds_file, path),
+            ):
+                with self.assertRaises(InvalidImageDataError) as caught:
+                    reader(source)
+                self.assertNotIsInstance(
+                    caught.exception, piexif.UnsupportedImageFormatError
+                )
+
     def test_zero_count_values_ignore_the_value_slot(self):
         for endian, marker in (("<", b"II"), (">", b"MM")):
             for kind in range(1, 14):
@@ -93,7 +155,16 @@ class LoadValidationTests(unittest.TestCase):
 
     def test_load_file_does_not_detect_format_from_filename(self):
         data = self.mrc_data(">", b"MM")
-        for prefix in ("II", "MM", "Exif", "RIFF0000WEBP"):
+        for prefix in (
+            "II",
+            "MM",
+            "Exif",
+            "RIFF0000WEBP",
+            "GIF87a",
+            "GIF89a",
+            "BM",
+            "qoif",
+        ):
             descriptor, path = tempfile.mkstemp(prefix=prefix, suffix=".tif", dir=".")
             self.addCleanup(os.remove, path)
             with os.fdopen(descriptor, "wb") as output:
