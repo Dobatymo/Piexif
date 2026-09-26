@@ -1,6 +1,7 @@
 import io
 
 from ._common import _is_image_data, merge_segments, split_into_segments
+from ._exceptions import InvalidImageDataError
 from piexif import _webp
 from piexif import _png
 
@@ -14,24 +15,24 @@ def remove(src, new_file=None):
     :param str filename: JPEG
     """
     if _is_image_data(src):
-        return _remove(src, new_file, False)
-    return _remove(src, new_file, True)
+        return _remove(src, new_file, True)
+    return _remove(src, new_file, False)
 
 
 def remove_bytes(data, new_file=None):
     """Remove metadata from in-memory JPEG, WebP, or PNG bytes."""
     if not isinstance(data, bytes) or not _is_image_data(data):
         raise ValueError("Given data is neither JPEG, WebP, nor PNG.")
-    return _remove(data, new_file, False)
+    return _remove(data, new_file, True)
 
 
 def remove_file(filename, new_file=None):
     """Remove metadata from a filename; the input is always treated as a path."""
-    return _remove(filename, new_file, True)
+    return _remove(filename, new_file, False)
 
 
-def _remove(src, new_file, output_is_file):
-    if not output_is_file:
+def _remove(src, new_file, data_is_bytes):
+    if data_is_bytes:
         src_data = src
     else:
         with open(src, "rb") as f:
@@ -51,6 +52,8 @@ def _remove(src, new_file, output_is_file):
             raise ValueError("Error occurred.")
     elif file_type == "png":
         new_data = _png.remove(src_data)
+    else:
+        raise InvalidImageDataError("Given data is neither JPEG, WebP, nor PNG.")
 
     if isinstance(new_file, io.BytesIO):
         new_file.write(new_data)
@@ -58,7 +61,7 @@ def _remove(src, new_file, output_is_file):
     elif new_file:
         with open(new_file, "wb+") as f:
             f.write(new_data)
-    elif output_is_file:
+    elif not data_is_bytes:
         with open(src, "wb+") as f:
             f.write(new_data)
     else:

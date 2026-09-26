@@ -1,8 +1,15 @@
 from ._remove import remove, remove_bytes, remove_file
-from ._load import load, load_bytes, load_file, load_ifds
+from ._load import (
+    load,
+    load_bytes,
+    load_file,
+    load_ifds,
+    load_ifds_bytes,
+    load_ifds_file,
+)
 from ._dump import dump, dump_ifds
-from ._transplant import transplant
-from ._insert import insert
+from ._transplant import transplant, transplant_bytes, transplant_file
+from ._insert import insert, insert_bytes, insert_file
 from ._exif import TYPES, TAGS, ImageIFD, ExifIFD, GPSIFD, InteropIFD
 from ._exceptions import InvalidImageDataError
 
@@ -18,10 +25,16 @@ __all__ = [
     "load_bytes",
     "load_file",
     "load_ifds",
+    "load_ifds_bytes",
+    "load_ifds_file",
     "dump",
     "dump_ifds",
     "transplant",
+    "transplant_bytes",
+    "transplant_file",
     "insert",
+    "insert_bytes",
+    "insert_file",
     "TYPES",
     "TAGS",
     "ImageIFD",

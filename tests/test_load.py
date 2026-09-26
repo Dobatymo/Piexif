@@ -1,5 +1,6 @@
 import os
 import struct
+import tempfile
 import unittest
 
 import piexif
@@ -33,6 +34,77 @@ class LoadValidationTests(unittest.TestCase):
             self.assertEqual(load_file(path), load_bytes(data))
         finally:
             os.remove(path)
+
+    def test_load_file_does_not_detect_format_from_filename(self):
+        data = self.mrc_data(">", b"MM")
+        for prefix in ("II", "MM", "Exif", "RIFF0000WEBP"):
+            descriptor, path = tempfile.mkstemp(prefix=prefix, suffix=".tif", dir=".")
+            self.addCleanup(os.remove, path)
+            with os.fdopen(descriptor, "wb") as output:
+                output.write(data)
+            filename = os.path.basename(path)
+            for name in (filename, filename.encode("ascii")):
+                self.assertEqual(load_file(name), load_bytes(data))
+                self.assertEqual(
+                    piexif.load_ifds_file(name), piexif.load_ifds_bytes(data)
+                )
+
+    def test_explicit_ifd_loaders_preserve_options(self):
+        jpeg = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00\xff\xd9"
+        data = piexif.dump_ifds(
+            [
+                {
+                    "tags": {piexif.ImageIFD.ImageWidth: 2},
+                    "subifds": [],
+                    "jpeg_data": jpeg,
+                }
+            ]
+        )
+        descriptor, path = tempfile.mkstemp(dir=".")
+        self.addCleanup(os.remove, path)
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(data[6:])
+        for key_is_name in (False, True):
+            for load_jpeg_data in (False, True):
+                width = "ImageWidth" if key_is_name else piexif.ImageIFD.ImageWidth
+                expected = [{"tags": {width: 2}, "subifds": []}]
+                if load_jpeg_data:
+                    expected[0]["jpeg_data"] = jpeg
+                self.assertEqual(
+                    piexif.load_ifds_bytes(data, key_is_name, load_jpeg_data), expected
+                )
+                self.assertEqual(
+                    piexif.load_ifds_file(path, key_is_name, load_jpeg_data), expected
+                )
+        with self.assertRaises(InvalidImageDataError):
+            piexif.load_ifds_bytes(os.path.basename(path).encode("ascii"))
+
+    def test_file_format_detection_matches_bytes(self):
+        import io
+        from PIL import Image
+
+        descriptor, path = tempfile.mkstemp()
+        self.addCleanup(os.remove, path)
+        os.close(descriptor)
+        image = Image.new("RGB", (2, 3), "red")
+        self.addCleanup(image.close)
+        exif = dump({"0th": {piexif.ImageIFD.Orientation: 6}})
+        for image_format in ("JPEG", "PNG", "WEBP"):
+            source, output = io.BytesIO(), io.BytesIO()
+            image.save(source, image_format)
+            piexif.insert_bytes(exif, source.getvalue(), output)
+            data = output.getvalue()
+            with open(path, "wb") as destination:
+                destination.write(data)
+            self.assertEqual(load_file(path), load_bytes(data))
+            self.assertEqual(piexif.load_ifds_file(path), piexif.load_ifds_bytes(data))
+        for data in (b"", b"not an image", exif):
+            with open(path, "wb") as destination:
+                destination.write(data)
+            with self.assertRaises(InvalidImageDataError):
+                load_file(path)
+            with self.assertRaises(InvalidImageDataError):
+                piexif.load_ifds_file(path)
 
     def mrc_data(self, endian, marker, kind=4, following=76):
         data = marker + struct.pack(endian + "HIH", 42, 8, 2)

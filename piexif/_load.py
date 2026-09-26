@@ -49,14 +49,14 @@ def load_bytes(data, key_is_name=False):
     """
     if not isinstance(data, bytes):
         raise TypeError("load_bytes() requires bytes.")
-    return _load(data, key_is_name, False, False, True)
+    return _load(data, key_is_name, False, data_is_bytes=True)
 
 
 def load_file(filename, key_is_name=False):
     """Read metadata from a filename; never interpret its value as image data."""
     if not isinstance(filename, STRING_TYPES + (bytes,)):
         raise TypeError("load_file() requires a filename.")
-    return _load(filename, key_is_name, False)
+    return _load(filename, key_is_name, False, data_is_bytes=False)
 
 
 def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
@@ -88,9 +88,21 @@ def load_ifds(input_data, key_is_name=False, load_jpeg_data=False):
     return _load(input_data, key_is_name, True, load_jpeg_data)
 
 
-def _load(
-    input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_bytes=False
-):
+def load_ifds_bytes(data, key_is_name=False, load_jpeg_data=False):
+    """Read nested directories from bytes; never interpret data as a filename."""
+    if not isinstance(data, bytes):
+        raise TypeError("load_ifds_bytes() requires bytes.")
+    return _load(data, key_is_name, True, load_jpeg_data, data_is_bytes=True)
+
+
+def load_ifds_file(filename, key_is_name=False, load_jpeg_data=False):
+    """Read nested directories from a filename; never interpret it as bytes."""
+    if not isinstance(filename, STRING_TYPES + (bytes,)):
+        raise TypeError("load_ifds_file() requires a filename.")
+    return _load(filename, key_is_name, True, load_jpeg_data, data_is_bytes=False)
+
+
+def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_bytes=None):
     exif_dict = {
         "0th": {},
         "Exif": {},
@@ -258,11 +270,14 @@ class _ExifReader(object):
                 }
         return chain(root)
 
-    def __init__(self, data, data_is_bytes=False):
+    def __init__(self, data, data_is_bytes=None):
+        # None auto-detects; True selects bytes and False selects a filename.
         # Prevents "UnicodeWarning: Unicode equal comparison failed" warnings on Python 2
         maybe_image = sys.version_info >= (3, 0, 0) or isinstance(data, str)
 
-        data_type = _is_image_data(data) if maybe_image else None
+        data_type = (
+            _is_image_data(data) if maybe_image and data_is_bytes is not False else None
+        )
         if data_type == "jpeg":
             segments = split_into_segments(data)
             app1 = get_exif_seg(segments)
@@ -284,30 +299,26 @@ class _ExifReader(object):
             )
         else:
             with open(data, "rb") as f:
-                magic_number = f.read(2)
-            if magic_number == b"\xff\xd8":  # JPEG
+                file_type = _is_image_data(f.read(12))
+                if file_type in ("tiff", "webp", "png"):
+                    f.seek(0)
+                    file_data = f.read()
+            if file_type == "jpeg":
                 app1 = read_exif_from_file(data)
                 if app1:
                     self.tiftag = app1[10:]
                 else:
                     self.tiftag = None
-            elif magic_number in (b"\x49\x49", b"\x4d\x4d"):  # TIFF
-                with open(data, "rb") as f:
-                    self.tiftag = f.read()
+            elif file_type == "tiff":
+                self.tiftag = file_data
+            elif file_type == "webp":
+                self.tiftag = _webp.get_exif(file_data)
+            elif file_type == "png":
+                self.tiftag = _png.get_exif(file_data)
             else:
-                with open(data, "rb") as f:
-                    header = f.read(12)
-                if header[0:4] == b"RIFF" and header[8:12] == b"WEBP":
-                    with open(data, "rb") as f:
-                        file_data = f.read()
-                    self.tiftag = _webp.get_exif(file_data)
-                elif header[0:8] == _png.PNG_SIGNATURE:
-                    with open(data, "rb") as f:
-                        self.tiftag = _png.get_exif(f.read())
-                else:
-                    raise InvalidImageDataError(
-                        "Given file is neither JPEG, TIFF, WebP, nor PNG."
-                    )
+                raise InvalidImageDataError(
+                    "Given file is neither JPEG, TIFF, WebP, nor PNG."
+                )
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
         ifd_dict = {}

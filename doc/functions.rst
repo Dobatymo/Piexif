@@ -86,6 +86,29 @@ load_ifds
    :rtype: list
 
 
+load_ifds_bytes
+---------------
+.. py:function:: piexif.load_ifds_bytes(data, key_is_name=False, load_jpeg_data=False)
+
+   Reads nested directories from image or Exif bytes. ``data`` must be bytes
+   and is never opened as a filename. Options and results match ``load_ifds()``.
+
+::
+
+    directories = piexif.load_ifds_bytes(image_bytes, load_jpeg_data=True)
+
+load_ifds_file
+--------------
+.. py:function:: piexif.load_ifds_file(filename, key_is_name=False, load_jpeg_data=False)
+
+   Reads nested directories from a filename, regardless of its name. Options
+   and results match ``load_ifds()``. ``load_ifds()`` retains automatic input
+   detection for existing callers.
+
+::
+
+    directories = piexif.load_ifds_file("source.tif", load_jpeg_data=True)
+
 dump
 ----
 
@@ -277,6 +300,14 @@ JPEG does not automatically filter incompatible tags or convert image data.
 
 insert
 ------
+
+For ``insert()``, ``remove()``, and ``transplant()``, callers must supply an
+empty ``io.BytesIO`` output buffer positioned at zero, such as ``io.BytesIO()``.
+This contract also applies to their explicit byte/file variants. The functions
+write at the current position without clearing or truncating the buffer, then
+rewind it to zero for reading. Before reusing a buffer, the caller must reset it
+with ``output.seek(0)`` and ``output.truncate(0)``.
+
 .. py:function:: piexif.insert(exif_bytes, filename)
 
    Inserts exif into JPEG, WebP, or PNG.
@@ -296,6 +327,34 @@ insert
    :param bytes exif_bytes: Exif as bytes
    :param bytes data: JPEG, WebP, or PNG data
    :param io.BytesIO output: output data
+
+insert_bytes
+------------
+.. py:function:: piexif.insert_bytes(exif_bytes, data, new_file=None)
+
+   Inserts Exif into JPEG, WebP, or PNG bytes. ``data`` must be bytes and is
+   never opened as a filename. Supply ``new_file`` as an output filename or
+   ``io.BytesIO`` buffer; omitting it raises ``ValueError``.
+
+::
+
+    output = io.BytesIO()
+    piexif.insert_bytes(exif_bytes, image_bytes, output)
+
+insert_file
+-----------
+.. py:function:: piexif.insert_file(exif_bytes, filename, new_file=None)
+
+   Inserts Exif into a JPEG, WebP, or PNG file. ``filename`` is always treated
+   as a path, regardless of its name. Omitting ``new_file`` replaces the input
+   file. Supply an output filename or ``io.BytesIO`` buffer to write elsewhere.
+
+::
+
+    piexif.insert_file(exif_bytes, "source.png", "updated.png")
+
+``insert()`` retains automatic input detection. Use ``insert_bytes()`` or
+``insert_file()`` when the input kind is known explicitly.
 
 remove
 ------
@@ -341,3 +400,32 @@ transplant
    :param bytes exif_src: JPEG data
    :param bytes image_src: JPEG data
    :param io.BytesIO output: output data
+
+transplant_bytes
+----------------
+.. py:function:: piexif.transplant_bytes(exif_src, image, new_file=None)
+
+   Copies Exif from one JPEG byte string to another. Both inputs must be
+   bytes and are never opened as filenames. Supply ``new_file`` as an output
+   filename or ``io.BytesIO`` buffer; omitting it raises ``ValueError``.
+   The source JPEG must contain Exif.
+
+::
+
+    output = io.BytesIO()
+    piexif.transplant_bytes(source_bytes, image_bytes, output)
+
+transplant_file
+---------------
+.. py:function:: piexif.transplant_file(exif_src, image, new_file=None)
+
+   Copies Exif between two JPEG filenames. Both inputs are always treated as
+   paths. Omitting ``new_file`` replaces ``image``; an output filename or
+   ``io.BytesIO`` buffer writes elsewhere. The source JPEG must contain Exif.
+
+::
+
+    piexif.transplant_file("source.jpg", "destination.jpg")
+
+``transplant()`` retains independent automatic detection for each input,
+including calls that mix a filename with JPEG bytes.

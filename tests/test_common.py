@@ -4,6 +4,8 @@ import struct
 import tempfile
 import unittest
 
+import piexif
+
 from piexif._common import (
     get_exif_seg,
     merge_segments,
@@ -15,6 +17,29 @@ from piexif._remove import remove_bytes
 
 def segment(marker, payload):
     return marker + struct.pack(">H", len(payload) + 2) + payload
+
+
+class OutputValidationTests(unittest.TestCase):
+    def test_unsupported_removal_preserves_files(self):
+        descriptor, source = tempfile.mkstemp()
+        os.close(descriptor)
+        self.addCleanup(os.remove, source)
+        descriptor, destination = tempfile.mkstemp()
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(b"existing destination")
+        self.addCleanup(os.remove, destination)
+        exif = piexif.dump({})
+        for remove in (piexif.remove, piexif.remove_file):
+            for data in (b"", b"not an image", exif, exif[6:]):
+                with open(source, "wb") as output:
+                    output.write(data)
+                for target in (None, destination):
+                    with self.assertRaises(piexif.InvalidImageDataError):
+                        remove(source, target)
+                    with open(source, "rb") as original:
+                        self.assertEqual(original.read(), data)
+                    with open(destination, "rb") as original:
+                        self.assertEqual(original.read(), b"existing destination")
 
 
 class MergeSegmentsTests(unittest.TestCase):

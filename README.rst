@@ -58,10 +58,23 @@ The standard API provides five functions.
 - *remove(filename)* - Remove exif from JPEG, WebP, or PNG.
 - *transplant(filename, filename)* - Transplant exif from JPEG to JPEG.
 
+Loading, insertion, removal, and transplantation also have explicit byte/file variants:
+``load_bytes()`` / ``load_file()``, ``insert_bytes()`` / ``insert_file()``,
+``remove_bytes()`` / ``remove_file()``, and
+``transplant_bytes()`` / ``transplant_file()``. Byte variants always treat their
+input as image data; file variants always treat it as a path.
+
+For ``io.BytesIO`` output, supply an empty buffer positioned at zero. Writers
+do not clear or truncate it; they rewind it after writing. To reuse a buffer,
+call ``seek(0)`` and ``truncate(0)`` before passing it again.
+
 The advanced API supports nested directory lists:
 
 - *load_ifds(input_data, key_is_name=False, load_jpeg_data=False)* - Read directory metadata, optionally including JPEG streams.
 - *dump_ifds(ifds)* - Serialize directory lists and attached JPEG streams to Exif bytes.
+
+``load_ifds_bytes()`` and ``load_ifds_file()`` select the input kind explicitly
+and accept the same options as ``load_ifds()``.
 
 Preservation
 ------------
