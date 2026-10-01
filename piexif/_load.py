@@ -1,6 +1,7 @@
 import numbers
 import struct
 import sys
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ._common import (
     _UNSUPPORTED_IMAGE_SIGNATURES,
@@ -16,7 +17,7 @@ from piexif import _png
 
 LITTLE_ENDIAN = b"\x49\x49"
 try:
-    STRING_TYPES = (basestring,)
+    STRING_TYPES = (basestring,)  # type: ignore
 except NameError:
     STRING_TYPES = (str,)
 
@@ -111,7 +112,7 @@ def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_byte
         "Interop": {},
         "1st": {},
         "thumbnail": None,
-    }
+    }  # type: Dict[str, Any]
     exifReader = _ExifReader(input_data, data_is_bytes)
     if exifReader.tiftag is None:
         if full_ifds:
@@ -168,7 +169,9 @@ def _load(input_data, key_is_name, full_ifds, load_jpeg_data=False, data_is_byte
 
 class _ExifReader(object):
     def get_image_ifds(self, root, key_is_name=False, load_jpeg_data=False):
-        nodes, active = {}, set()
+        assert self.tiftag is not None
+        nodes = {}  # type: Dict[int, Dict[str, Any]]
+        active = set()  # type: Set[int]
         stack = [(root, "Image", False)]
         while stack:
             pointer, kind, leaving = stack.pop()
@@ -177,6 +180,7 @@ class _ExifReader(object):
                 continue
             if not isinstance(pointer, numbers.Integral) or pointer < 8:
                 raise InvalidImageDataError("Invalid IFD offset.")
+            pointer = int(pointer)
             if pointer in active:
                 raise InvalidImageDataError("Cyclic IFD graph.")
             if pointer in nodes:
@@ -234,6 +238,8 @@ class _ExifReader(object):
                         raise InvalidImageDataError(
                             "Invalid JPEG data offset or length."
                         )
+                    start = int(start)
+                    length = int(length)
                     node["jpeg_data"] = self.tiftag[start : start + length]
             nodes[pointer] = {
                 "kind": kind,
@@ -244,18 +250,20 @@ class _ExifReader(object):
             }
             active.add(pointer)
             stack.append((pointer, kind, True))
-            targets = [(child, "Image") for child in children]
+            targets = []  # type: List[Tuple[int, str]]
+            for child in children:  # type: int
+                targets.append((child, "Image"))
             targets.extend((target, name) for name, target in links.items())
             if following:
                 targets.append((following, "Image"))
-            for target, target_kind in reversed(targets):
+            for target, target_kind in reversed(targets):  # type: Tuple[int, str]
                 stack.append((target, target_kind, False))
 
-        chains = {}
+        chains = {}  # type: Dict[int, List[Dict[str, Any]]]
 
         def chain(pointer):
             if pointer not in chains:
-                result = []
+                result = []  # type: List[Dict[str, Any]]
                 chains[pointer] = result
                 while pointer:
                     result.append(nodes[pointer]["node"])
@@ -280,11 +288,13 @@ class _ExifReader(object):
     def __init__(self, data, data_is_bytes=None):
         # None auto-detects; True selects bytes and False selects a filename.
         # Prevents "UnicodeWarning: Unicode equal comparison failed" warnings on Python 2
+        self.endian_mark = ""
+        self.tiftag = None  # type: Optional[bytes]
         maybe_image = sys.version_info >= (3, 0, 0) or isinstance(data, str)
 
         data_type = (
             _is_image_data(data) if maybe_image and data_is_bytes is not False else None
-        )
+        )  # type: Optional[str]
         if data_type == "jpeg":
             segments = split_into_segments(data)
             app1 = get_exif_seg(segments)
@@ -300,7 +310,7 @@ class _ExifReader(object):
             self.tiftag = _png.get_exif(data)
         elif data_type == "exif":
             self.tiftag = data[6:]
-        elif data_type in _UNSUPPORTED_IMAGE_SIGNATURES:
+        elif data_type is not None and data_type in _UNSUPPORTED_IMAGE_SIGNATURES:
             raise UnsupportedImageFormatError(
                 "Unsupported image format: {}.".format(data_type.upper())
             )
@@ -309,9 +319,10 @@ class _ExifReader(object):
                 "Given data is neither JPEG, TIFF, WebP, nor PNG."
             )
         else:
+            file_type = None  # type: Optional[str]
             with open(data, "rb") as f:
                 file_type = _is_image_data(f.read(12))
-                if file_type in _UNSUPPORTED_IMAGE_SIGNATURES:
+                if file_type is not None and file_type in _UNSUPPORTED_IMAGE_SIGNATURES:
                     raise UnsupportedImageFormatError(
                         "Unsupported image format: {}.".format(file_type.upper())
                     )
@@ -336,6 +347,7 @@ class _ExifReader(object):
                 )
 
     def get_ifd_dict(self, pointer, ifd_name, read_unknown=False):
+        assert self.tiftag is not None
         ifd_dict = {}
         if (
             not isinstance(pointer, numbers.Integral)
@@ -343,6 +355,7 @@ class _ExifReader(object):
             or pointer + 2 > len(self.tiftag)
         ):
             raise InvalidImageDataError("Invalid IFD offset.")
+        pointer = int(pointer)
         tag_count = struct.unpack(
             self.endian_mark + "H", self.tiftag[pointer : pointer + 2]
         )[0]
@@ -385,7 +398,8 @@ class _ExifReader(object):
         return ifd_dict
 
     def convert_value(self, val):
-        data = None
+        assert self.tiftag is not None
+        data = None  # type: Any
         t = val[0]
         length = val[1]
         value = val[2]

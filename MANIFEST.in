@@ -1,3 +1,4 @@
 include *.txt
+recursive-include piexif *.pyi py.typed
 recursive-include docs *.txt
 recursive-include tests *.jpg *.py *.tif

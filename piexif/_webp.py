@@ -147,6 +147,8 @@ def set_vp8x(chunks):
             flags[5] = b"1"
         elif chunk["fourcc"] == b"ANIM":
             flags[6] = b"1"
+    if width is None or height is None:
+        raise ValueError("Unable to determine WebP dimensions.")
     width_minus_one = width - 1
     height_minus_one = height - 1
 

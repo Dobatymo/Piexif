@@ -1,6 +1,7 @@
 import copy
 import numbers
 import struct
+from typing import Any, Dict, List, Set, Tuple, Union, cast
 
 from ._common import split_into_segments
 from ._exif import TAGS, TYPES, ExifIFD, ImageIFD
@@ -9,6 +10,7 @@ from ._exceptions import InvalidImageDataError
 
 
 TIFF_HEADER_LENGTH = 8
+RationalPair = Union[Tuple[int, int], List[int]]
 
 
 def dump(exif_dict_original):
@@ -188,7 +190,9 @@ def dump(exif_dict_original):
 
 def _collect_image_ifds(ifds):
     """Flatten nested directories without recursively copying their topology."""
-    nodes, seen_chains, stack = {}, set(), [("Image", ifds)]
+    nodes = {}  # type: Dict[int, Dict[str, Any]]
+    seen_chains = set()  # type: Set[int]
+    stack = [("Image", ifds)]
     while stack:
         kind, value = stack.pop()
         if kind == "Image":
@@ -267,7 +271,8 @@ def dump_ifds(ifds):
     :rtype: bytes
     """
     root, nodes = _collect_image_ifds(ifds)
-    active, visited, order = set(), set(), []
+    active = set()  # type: Set[int]
+    visited, order = set(), []
     stack = [(root, False)]
     while stack:
         pointer, leaving = stack.pop()
@@ -388,15 +393,16 @@ def _pack_double(*args):
 def _rational_values(raw_value, signed):
     if not isinstance(raw_value, (tuple, list)):
         raise ValueError("Got invalid type to convert.")
+    values = []  # type: List[RationalPair]
     if len(raw_value) == 2 and all(isinstance(v, numbers.Integral) for v in raw_value):
-        values = [raw_value]
+        values = [cast(RationalPair, raw_value)]
     elif raw_value and all(
         isinstance(v, (tuple, list))
         and len(v) == 2
         and all(isinstance(n, numbers.Integral) for n in v)
         for v in raw_value
     ):
-        values = raw_value
+        values = cast(List[RationalPair], raw_value)
     else:
         raise ValueError("Got invalid type to convert.")
     minimum = -(2 ** 31) if signed else 0
