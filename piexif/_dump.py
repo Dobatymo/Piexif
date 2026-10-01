@@ -4,10 +4,8 @@ import struct
 from typing import Any, Dict, List, Set, Tuple, Union, cast
 
 from ._common import split_into_segments
-from ._exif import TAGS, TYPES, ExifIFD, ImageIFD
-from ._exif import _IFD_POINTERS
 from ._exceptions import InvalidImageDataError
-
+from ._exif import _IFD_POINTERS, TAGS, TYPES, ExifIFD, ImageIFD
 
 TIFF_HEADER_LENGTH = 8
 RationalPair = Union[Tuple[int, int], List[int]]

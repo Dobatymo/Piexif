@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 import piexif
-
 from piexif._dump import dump
 from piexif._webp import (
     get_exif,

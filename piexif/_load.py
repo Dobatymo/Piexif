@@ -3,6 +3,7 @@ import struct
 import sys
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from . import _png, _webp
 from ._common import (
     _UNSUPPORTED_IMAGE_SIGNATURES,
     _is_image_data,
@@ -11,9 +12,7 @@ from ._common import (
     split_into_segments,
 )
 from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
-from ._exif import TAGS, TYPES, ExifIFD, ImageIFD, _IFD_POINTERS
-from piexif import _webp
-from piexif import _png
+from ._exif import _IFD_POINTERS, TAGS, TYPES, ExifIFD, ImageIFD
 
 LITTLE_ENDIAN = b"\x49\x49"
 try:

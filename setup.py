@@ -1,7 +1,7 @@
 import re
-from setuptools import setup
 import sys
 
+from setuptools import setup
 
 sys.path.append("./piexif")
 sys.path.append("./tests")

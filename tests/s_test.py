@@ -9,11 +9,18 @@ import time
 import unittest
 
 from PIL import Image
-import piexif
-from piexif import _common, ImageIFD, ExifIFD, GPSIFD, TAGS, InvalidImageDataError
-from piexif import _webp
-from piexif import helper
 
+import piexif
+from piexif import (
+    GPSIFD,
+    TAGS,
+    ExifIFD,
+    ImageIFD,
+    InvalidImageDataError,
+    _common,
+    _webp,
+    helper,
+)
 
 print("piexif version: {}".format(piexif.VERSION))
 

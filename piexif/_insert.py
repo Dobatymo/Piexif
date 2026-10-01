@@ -2,10 +2,9 @@ import io
 import struct
 import sys
 
+from . import _png, _webp
 from ._common import _is_image_data, merge_segments, split_into_segments
 from ._exceptions import InvalidImageDataError
-from piexif import _webp
-from piexif import _png
 
 
 def insert(exif, image, new_file=None):

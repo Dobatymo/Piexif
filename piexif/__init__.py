@@ -1,4 +1,7 @@
-from ._remove import remove, remove_bytes, remove_file
+from ._dump import dump, dump_ifds
+from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
+from ._exif import GPSIFD, TAGS, TYPES, ExifIFD, ImageIFD, InteropIFD
+from ._insert import insert, insert_bytes, insert_file
 from ._load import (
     load,
     load_bytes,
@@ -7,12 +10,8 @@ from ._load import (
     load_ifds_bytes,
     load_ifds_file,
 )
-from ._dump import dump, dump_ifds
+from ._remove import remove, remove_bytes, remove_file
 from ._transplant import transplant, transplant_bytes, transplant_file
-from ._insert import insert, insert_bytes, insert_file
-from ._exif import TYPES, TAGS, ImageIFD, ExifIFD, GPSIFD, InteropIFD
-from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
-
 
 VERSION = "1.1.3"
 

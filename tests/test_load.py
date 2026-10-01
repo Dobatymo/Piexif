@@ -4,9 +4,8 @@ import tempfile
 import unittest
 
 import piexif
-
-from piexif._exceptions import InvalidImageDataError
 from piexif._dump import dump
+from piexif._exceptions import InvalidImageDataError
 from piexif._load import _ExifReader, load, load_bytes, load_file, load_ifds
 
 
@@ -208,6 +207,7 @@ class LoadValidationTests(unittest.TestCase):
 
     def test_file_format_detection_matches_bytes(self):
         import io
+
         from PIL import Image
 
         descriptor, path = tempfile.mkstemp()

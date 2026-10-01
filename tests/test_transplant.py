@@ -6,7 +6,6 @@ import unittest
 from PIL import Image
 
 import piexif
-
 from piexif._common import split_into_segments
 from piexif._dump import dump
 from piexif._exif import ImageIFD

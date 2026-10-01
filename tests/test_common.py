@@ -5,7 +5,6 @@ import tempfile
 import unittest
 
 import piexif
-
 from piexif._common import (
     get_exif_seg,
     merge_segments,

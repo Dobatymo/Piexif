@@ -4,7 +4,7 @@ import unittest
 
 from piexif._dump import dump, dump_ifds
 from piexif._exceptions import InvalidImageDataError
-from piexif._exif import ExifIFD, GPSIFD, ImageIFD, InteropIFD
+from piexif._exif import GPSIFD, ExifIFD, ImageIFD, InteropIFD
 from piexif._load import load, load_ifds_bytes
 
 
