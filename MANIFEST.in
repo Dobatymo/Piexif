@@ -1,4 +1,4 @@
 include *.txt
 recursive-include piexif *.pyi py.typed
-recursive-include docs *.txt
-recursive-include tests *.jpg *.py *.tif
+recursive-include doc *.bat *.py *.rst *.txt Makefile
+recursive-include tests *.jpg *.py *.tif *.txt *.webp

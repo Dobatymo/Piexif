@@ -8,7 +8,10 @@ IFDs = List[Dict[str, Any]]
 OutputFile = Optional[Union[str, bytes, Text, BytesIO]]
 TagInfo = Dict[str, Union[str, int, Tuple[int, ...]]]
 
-def load(input_data: ImageInput, key_is_name: bool = ...) -> ExifDict: ...
+def load(
+    input_data: ImageInput,
+    key_is_name: bool = ...,
+) -> ExifDict: ...
 def load_bytes(data: bytes, key_is_name: bool = ...) -> ExifDict: ...
 def load_file(filename: FileName, key_is_name: bool = ...) -> ExifDict: ...
 def load_ifds(
@@ -72,5 +75,10 @@ GPSIFD: _IFDConstants
 InteropIFD: _IFDConstants
 VERSION: str
 
-class InvalidImageDataError(Exception): ...
+class _Config:
+    allow_legacy_png_text_exif: bool
+
+config: _Config
+
+class InvalidImageDataError(ValueError): ...
 class UnsupportedImageFormatError(InvalidImageDataError): ...

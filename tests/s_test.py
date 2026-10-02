@@ -1154,6 +1154,7 @@ def suite():
                 "test_exif",
                 "test_insert",
                 "test_load",
+                "test_png",
                 "test_transplant",
                 "test_webp",
             ]

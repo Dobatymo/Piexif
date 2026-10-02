@@ -11,6 +11,13 @@ The standard API, ``load()``, returns metadata dictionaries. The advanced API,
 ``load_ifds()``, returns nested directory lists. Both are supported;
 the advanced API does not replace or deprecate the standard API.
 Use ``dump()`` for standard dictionaries and ``dump_ifds()`` for directory lists.
+PNG's standard ``eXIf`` chunk is read by default. Nonstandard legacy EXIF
+profiles in PNG ``tEXt`` chunks are disabled by default. Enable them for all
+load, insert, and remove calls with::
+
+    piexif.config.allow_legacy_png_text_exif = True
+
+This is a process-wide setting; set it during application initialization.
 
 load
 ----
@@ -23,7 +30,7 @@ load
    Use ``load_ifds()`` for a list of primary directories with nested
    auxiliary IFDs and optional JPEG data. See Nested directory lists below.
 
-   :param str filename: JPEG, WebP, or TIFF
+   :param str filename: JPEG, WebP, PNG, or TIFF
    :param bool key_is_name: If True, use tag names (for example, "Make") instead of numeric tag IDs (271) inside each IFD dictionary. Defaults to False. IFD names, values, and thumbnail data are unchanged. Keep False when passing the result to ``dump()``, which expects numeric tag IDs.
    :return: Standard metadata dictionary.
    :rtype: dict
@@ -32,7 +39,7 @@ load_bytes
 ----------
 .. py:function:: piexif.load_bytes(data, key_is_name=False)
 
-   Reads JPEG, WebP, TIFF, or Exif bytes. The argument is always treated as
+   Reads JPEG, WebP, PNG, TIFF, or Exif bytes. The argument is always treated as
    in-memory data and is never opened as a filename. Use this function when
    processing untrusted input.
 
@@ -100,7 +107,7 @@ could be mistaken for image data.
    Reads image or EXIF bytes and returns the same structure as loading a
    filename: standard metadata dictionaries.
 
-   :param bytes data: JPEG, WebP, TIFF, or Exif
+   :param bytes data: JPEG, WebP, PNG, TIFF, or Exif
    :param bool key_is_name: If True, use tag names (for example, "Make") instead of numeric tag IDs (271) inside each IFD dictionary. Defaults to False. IFD names, values, and thumbnail data are unchanged. Keep False when passing the result to ``dump()``, which expects numeric tag IDs.
    :return: Standard metadata dictionary.
    :rtype: dict
@@ -113,7 +120,7 @@ load_ifds
    list. Accepts the same filenames and image/Exif bytes as ``load()``.
    The return type is always a list; ``load()`` always returns a dictionary.
 
-   :param input_data: JPEG, WebP, TIFF filename or image/Exif bytes.
+   :param input_data: JPEG, WebP, PNG, TIFF filename or image/Exif bytes.
    :param bool key_is_name: Use tag names instead of numeric IDs. Keep False when passing the result to ``dump_ifds()``.
    :param bool load_jpeg_data: Extract JPEGInterchangeFormat streams into per-directory ``jpeg_data`` bytes. Defaults to False. This controls payload extraction, not file I/O; TIFF input is still read in full.
    :return: Nonempty primary-directory list; see Nested directory lists below.
@@ -345,7 +352,7 @@ write at the current position without clearing or truncating the buffer, then
 rewind it to zero for reading. Before reusing a buffer, the caller must reset it
 with ``output.seek(0)`` and ``output.truncate(0)``.
 
-.. py:function:: piexif.insert(exif_bytes, filename)
+.. py:function:: piexif.insert(exif_bytes, filename, new_file=None)
 
    Inserts exif into JPEG, WebP, or PNG.
 

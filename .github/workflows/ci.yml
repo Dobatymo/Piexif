@@ -46,10 +46,30 @@ jobs:
             ${{ matrix.python-image }} \
             sh -c "python -m pip install --no-cache-dir pip==20.3.4 flake8==3.9.2 && python -m flake8 ."
 
+  test:
+    name: Tests (${{ matrix.python-image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-image: ["python:2.7.18", "python:3.5.10"]
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: |
+          docker run --rm \
+            --volume "${{ github.workspace }}:/workspace" \
+            --workdir /workspace \
+            ${{ matrix.python-image }} \
+            sh -c "python -m pip install --no-cache-dir pip==20.3.4 Pillow==6.2.2 && python -m pip install --no-cache-dir . && python setup.py test"
+
   publish:
     name: Build and publish
     if: github.event_name == 'release'
-    needs: [format, lint]
+    needs: [format, lint, test]
     runs-on: ubuntu-latest
     permissions:
       contents: read

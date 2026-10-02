@@ -93,133 +93,198 @@ TIFF_TAGS = {
 }
 
 
+# TIFF/EP image tags not already defined by TIFF 6.0. Shared TIFF 6.0 tags
+# remain in TIFF_TAGS; entries also used by EXIF retain their Image IFD mapping.
+TIFFEP_TAGS = {
+    33421: {"name": "CFARepeatPatternDim", "type": TYPES.Short},
+    33422: {"name": "CFAPattern", "type": TYPES.Byte},
+    33423: {"name": "BatteryLevel", "type": TYPES.Rational},  # Also ASCII.
+    33434: {"name": "ExposureTime", "type": TYPES.Rational},
+    34675: {"name": "InterColorProfile", "type": TYPES.Undefined},
+    34853: {"name": "GPSTag", "type": TYPES.Long},
+    34857: {"name": "Interlace", "type": TYPES.Short},
+    34858: {"name": "TimeZoneOffset", "type": TYPES.SShort},
+    34859: {"name": "SelfTimerMode", "type": TYPES.Short},
+    37387: {"name": "FlashEnergy", "type": TYPES.Rational},
+    37388: {"name": "SpatialFrequencyResponse", "type": TYPES.Undefined},
+    37389: {"name": "Noise", "type": TYPES.Undefined},
+    37390: {"name": "FocalPlaneXResolution", "type": TYPES.Rational},
+    37391: {"name": "FocalPlaneYResolution", "type": TYPES.Rational},
+    37392: {"name": "FocalPlaneResolutionUnit", "type": TYPES.Short},
+    37393: {"name": "ImageNumber", "type": TYPES.Long},
+    37394: {"name": "SecurityClassification", "type": TYPES.Ascii},
+    37395: {"name": "ImageHistory", "type": TYPES.Ascii},
+    37397: {"name": "ExposureIndex", "type": TYPES.Rational},
+    37398: {"name": "TIFFEPStandardID", "type": TYPES.Byte},
+    37399: {"name": "SensingMethod", "type": TYPES.Short},
+}
+
+# TIFF extension tags defined by Adobe technical notes. These are separate from
+# the TIFF 6.0 baseline in TIFF_TAGS and are only registered for Image IFDs.
+TIFF_TECHNOTE_TAGS = {
+    330: {"name": "SubIFDs", "type": TYPES.Long},
+    343: {"name": "ClipPath", "type": TYPES.Byte},
+    344: {"name": "XClipPathUnits", "type": TYPES.Long},
+    345: {"name": "YClipPathUnits", "type": TYPES.Long},
+    346: {"name": "Indexed", "type": TYPES.Short},
+    347: {"name": "JPEGTables", "type": TYPES.Undefined},
+    351: {"name": "OPIProxy", "type": TYPES.Short},
+    32781: {"name": "ImageID", "type": TYPES.Ascii},
+}
+
+# Adobe DNG tags. Existing entries keep their established types; new entries use
+# a common permitted type, with alternatives noted below.
+DNG_TAGS = {
+    50706: {"name": "DNGVersion", "type": TYPES.Byte},
+    50707: {"name": "DNGBackwardVersion", "type": TYPES.Byte},
+    50708: {"name": "UniqueCameraModel", "type": TYPES.Ascii},
+    50709: {"name": "LocalizedCameraModel", "type": TYPES.Byte},  # Also ASCII.
+    50710: {"name": "CFAPlaneColor", "type": TYPES.Byte},
+    50711: {"name": "CFALayout", "type": TYPES.Short},
+    50712: {"name": "LinearizationTable", "type": TYPES.Short},
+    50713: {"name": "BlackLevelRepeatDim", "type": TYPES.Short},
+    50714: {"name": "BlackLevel", "type": TYPES.Rational},  # Also SHORT or LONG.
+    50715: {"name": "BlackLevelDeltaH", "type": TYPES.SRational},
+    50716: {"name": "BlackLevelDeltaV", "type": TYPES.SRational},
+    50717: {"name": "WhiteLevel", "type": TYPES.Short},  # Also LONG.
+    50718: {"name": "DefaultScale", "type": TYPES.Rational},
+    50719: {"name": "DefaultCropOrigin", "type": TYPES.Short},  # Also LONG or RATIONAL.
+    50720: {"name": "DefaultCropSize", "type": TYPES.Short},  # Also LONG or RATIONAL.
+    50721: {"name": "ColorMatrix1", "type": TYPES.SRational},
+    50722: {"name": "ColorMatrix2", "type": TYPES.SRational},
+    50723: {"name": "CameraCalibration1", "type": TYPES.SRational},
+    50724: {"name": "CameraCalibration2", "type": TYPES.SRational},
+    50725: {"name": "ReductionMatrix1", "type": TYPES.SRational},
+    50726: {"name": "ReductionMatrix2", "type": TYPES.SRational},
+    50727: {"name": "AnalogBalance", "type": TYPES.Rational},
+    50728: {"name": "AsShotNeutral", "type": TYPES.Short},  # Also RATIONAL.
+    50729: {"name": "AsShotWhiteXY", "type": TYPES.Rational},
+    50730: {"name": "BaselineExposure", "type": TYPES.SRational},
+    50731: {"name": "BaselineNoise", "type": TYPES.Rational},
+    50732: {"name": "BaselineSharpness", "type": TYPES.Rational},
+    50733: {"name": "BayerGreenSplit", "type": TYPES.Long},
+    50734: {"name": "LinearResponseLimit", "type": TYPES.Rational},
+    50735: {"name": "CameraSerialNumber", "type": TYPES.Ascii},
+    50736: {"name": "LensInfo", "type": TYPES.Rational},
+    50737: {"name": "ChromaBlurRadius", "type": TYPES.Rational},
+    50738: {"name": "AntiAliasStrength", "type": TYPES.Rational},
+    50739: {"name": "ShadowScale", "type": TYPES.SRational},
+    50740: {"name": "DNGPrivateData", "type": TYPES.Byte},
+    50741: {"name": "MakerNoteSafety", "type": TYPES.Short},
+    50778: {"name": "CalibrationIlluminant1", "type": TYPES.Short},
+    50779: {"name": "CalibrationIlluminant2", "type": TYPES.Short},
+    50780: {"name": "BestQualityScale", "type": TYPES.Rational},
+    50781: {"name": "RawDataUniqueID", "type": TYPES.Byte},
+    50827: {"name": "OriginalRawFileName", "type": TYPES.Byte},  # Also ASCII.
+    50828: {"name": "OriginalRawFileData", "type": TYPES.Undefined},
+    50829: {"name": "ActiveArea", "type": TYPES.Short},  # Also LONG.
+    50830: {"name": "MaskedAreas", "type": TYPES.Short},  # Also LONG.
+    50831: {"name": "AsShotICCProfile", "type": TYPES.Undefined},
+    50832: {"name": "AsShotPreProfileMatrix", "type": TYPES.SRational},
+    50833: {"name": "CurrentICCProfile", "type": TYPES.Undefined},
+    50834: {"name": "CurrentPreProfileMatrix", "type": TYPES.SRational},
+    50879: {"name": "ColorimetricReference", "type": TYPES.Short},
+    50931: {"name": "CameraCalibrationSignature", "type": TYPES.Byte},  # Also ASCII.
+    50932: {"name": "ProfileCalibrationSignature", "type": TYPES.Byte},  # Also ASCII.
+    50933: {"name": "ExtraCameraProfiles", "type": TYPES.Long},
+    50934: {"name": "AsShotProfileName", "type": TYPES.Byte},  # Also ASCII.
+    50935: {"name": "NoiseReductionApplied", "type": TYPES.Rational},
+    50936: {"name": "ProfileName", "type": TYPES.Byte},  # Also ASCII.
+    50937: {"name": "ProfileHueSatMapDims", "type": TYPES.Long},
+    50938: {"name": "ProfileHueSatMapData1", "type": TYPES.Float},
+    50939: {"name": "ProfileHueSatMapData2", "type": TYPES.Float},
+    50940: {"name": "ProfileToneCurve", "type": TYPES.Float},
+    50941: {"name": "ProfileEmbedPolicy", "type": TYPES.Long},
+    50942: {"name": "ProfileCopyright", "type": TYPES.Byte},  # Also ASCII.
+    50964: {"name": "ForwardMatrix1", "type": TYPES.SRational},
+    50965: {"name": "ForwardMatrix2", "type": TYPES.SRational},
+    50966: {"name": "PreviewApplicationName", "type": TYPES.Byte},  # Also ASCII.
+    50967: {"name": "PreviewApplicationVersion", "type": TYPES.Byte},  # Also ASCII.
+    50968: {"name": "PreviewSettingsName", "type": TYPES.Byte},  # Also ASCII.
+    50969: {"name": "PreviewSettingsDigest", "type": TYPES.Byte},
+    50970: {"name": "PreviewColorSpace", "type": TYPES.Long},
+    50971: {"name": "PreviewDateTime", "type": TYPES.Ascii},
+    # Preserve the legacy UNDEFINED representation; DNG specifies BYTE.
+    50972: {"name": "RawImageDigest", "type": TYPES.Undefined},
+    50973: {"name": "OriginalRawFileDigest", "type": TYPES.Undefined},
+    50974: {"name": "SubTileBlockSize", "type": TYPES.Long},  # Also SHORT.
+    50975: {"name": "RowInterleaveFactor", "type": TYPES.Long},  # Also SHORT.
+    50981: {"name": "ProfileLookTableDims", "type": TYPES.Long},
+    50982: {"name": "ProfileLookTableData", "type": TYPES.Float},
+    51008: {"name": "OpcodeList1", "type": TYPES.Undefined},
+    51009: {"name": "OpcodeList2", "type": TYPES.Undefined},
+    51022: {"name": "OpcodeList3", "type": TYPES.Undefined},
+    51041: {"name": "NoiseProfile", "type": TYPES.DFloat},
+    51089: {"name": "OriginalDefaultFinalSize", "type": TYPES.Long},  # Also SHORT.
+    51090: {"name": "OriginalBestQualityFinalSize", "type": TYPES.Long},  # Also SHORT.
+    # DNG also permits SHORT or RATIONAL for OriginalDefaultCropSize.
+    51091: {"name": "OriginalDefaultCropSize", "type": TYPES.Long},
+    51107: {"name": "ProfileHueSatMapEncoding", "type": TYPES.Long},
+    51108: {"name": "ProfileLookTableEncoding", "type": TYPES.Long},
+    51109: {"name": "BaselineExposureOffset", "type": TYPES.Rational},
+    51110: {"name": "DefaultBlackRender", "type": TYPES.Long},
+    51111: {"name": "NewRawImageDigest", "type": TYPES.Byte},
+    51112: {"name": "RawToPreviewGain", "type": TYPES.DFloat},
+    51125: {"name": "DefaultUserCrop", "type": TYPES.Rational},
+    51177: {"name": "DepthFormat", "type": TYPES.Short},
+    51178: {"name": "DepthNear", "type": TYPES.Rational},
+    51179: {"name": "DepthFar", "type": TYPES.Rational},
+    51180: {"name": "DepthUnits", "type": TYPES.Short},
+    51181: {"name": "DepthMeasureType", "type": TYPES.Short},
+    51182: {"name": "EnhanceParams", "type": TYPES.Ascii},
+    52525: {"name": "ProfileGainTableMap", "type": TYPES.Undefined},
+    52526: {"name": "SemanticName", "type": TYPES.Ascii},
+    52528: {"name": "SemanticInstanceID", "type": TYPES.Ascii},
+    52529: {"name": "CalibrationIlluminant3", "type": TYPES.Short},
+    52530: {"name": "CameraCalibration3", "type": TYPES.SRational},
+    52531: {"name": "ColorMatrix3", "type": TYPES.SRational},
+    52532: {"name": "ForwardMatrix3", "type": TYPES.SRational},
+    52533: {"name": "IlluminantData1", "type": TYPES.Undefined},
+    52534: {"name": "IlluminantData2", "type": TYPES.Undefined},
+    52535: {"name": "IlluminantData3", "type": TYPES.Undefined},
+    52536: {"name": "MaskSubArea", "type": TYPES.Long},
+    52537: {"name": "ProfileHueSatMapData3", "type": TYPES.Float},
+    52538: {"name": "ReductionMatrix3", "type": TYPES.SRational},
+    52543: {"name": "RGBTables", "type": TYPES.Undefined},
+    52544: {"name": "ProfileGainTableMap2", "type": TYPES.Undefined},
+    52547: {"name": "ColumnInterleaveFactor", "type": TYPES.Long},  # Also SHORT.
+    52548: {"name": "ImageSequenceInfo", "type": TYPES.Undefined},
+    52550: {"name": "ImageStats", "type": TYPES.Undefined},
+    52551: {"name": "ProfileDynamicRange", "type": TYPES.Undefined},
+    52552: {"name": "ProfileGroupName", "type": TYPES.Ascii},  # Also BYTE.
+    52553: {"name": "JXLDistance", "type": TYPES.Float},
+    52554: {"name": "JXLEffort", "type": TYPES.Long},
+    52555: {"name": "JXLDecodeSpeed", "type": TYPES.Long},
+}
+
+# Adobe CinemaDNG-specific TIFF tags (versions 1.0 and 1.1).
+CINEMADNG_TAGS = {
+    51043: {"name": "TimeCodes", "type": TYPES.Byte},
+    51044: {"name": "FrameRate", "type": TYPES.SRational},
+    51058: {"name": "TStop", "type": TYPES.Rational},
+    51081: {"name": "ReelName", "type": TYPES.Ascii},
+    51105: {"name": "CameraLabel", "type": TYPES.Ascii},
+}
+
+
 TAGS = {
     "Image": {
         11: {"name": "ProcessingSoftware", "type": TYPES.Ascii},
-        330: {"name": "SubIFDs", "type": TYPES.Long},  # TIFF Tech Note 1
-        343: {"name": "ClipPath", "type": TYPES.Byte},
-        344: {"name": "XClipPathUnits", "type": TYPES.Long},
-        345: {"name": "YClipPathUnits", "type": TYPES.Long},
-        346: {"name": "Indexed", "type": TYPES.Short},
-        347: {"name": "JPEGTables", "type": TYPES.Undefined},
-        351: {"name": "OPIProxy", "type": TYPES.Short},
         400: {"name": "GlobalParametersIFD", "type": TYPES.Long},  # TIFF-FX
         434: {"name": "ImageBaseColor", "type": TYPES.Short},  # TIFF-FX
         559: {"name": "StripRowCounts", "type": TYPES.Long},  # TIFF-FX
         700: {"name": "XMLPacket", "type": TYPES.Byte},
         18246: {"name": "Rating", "type": TYPES.Short},
         18249: {"name": "RatingPercent", "type": TYPES.Short},
-        32781: {"name": "ImageID", "type": TYPES.Ascii},
-        33421: {"name": "CFARepeatPatternDim", "type": TYPES.Short},
-        33422: {"name": "CFAPattern", "type": TYPES.Byte},
-        33423: {"name": "BatteryLevel", "type": TYPES.Rational},
-        33434: {"name": "ExposureTime", "type": TYPES.Rational},
         34377: {"name": "ImageResources", "type": TYPES.Byte},
         34665: {"name": "ExifTag", "type": TYPES.Long},
-        34675: {"name": "InterColorProfile", "type": TYPES.Undefined},
         34732: {"name": "ImageLayer", "type": TYPES.Long},  # TIFF-FX
-        34853: {"name": "GPSTag", "type": TYPES.Long},
-        34857: {"name": "Interlace", "type": TYPES.Short},
-        34858: {"name": "TimeZoneOffset", "type": TYPES.SShort},
-        34859: {"name": "SelfTimerMode", "type": TYPES.Short},
-        37387: {"name": "FlashEnergy", "type": TYPES.Rational},
-        37388: {"name": "SpatialFrequencyResponse", "type": TYPES.Undefined},
-        37389: {"name": "Noise", "type": TYPES.Undefined},
-        37390: {"name": "FocalPlaneXResolution", "type": TYPES.Rational},
-        37391: {"name": "FocalPlaneYResolution", "type": TYPES.Rational},
-        37392: {"name": "FocalPlaneResolutionUnit", "type": TYPES.Short},
-        37393: {"name": "ImageNumber", "type": TYPES.Long},
-        37394: {"name": "SecurityClassification", "type": TYPES.Ascii},
-        37395: {"name": "ImageHistory", "type": TYPES.Ascii},
-        37397: {"name": "ExposureIndex", "type": TYPES.Rational},
-        37398: {"name": "TIFFEPStandardID", "type": TYPES.Byte},
-        37399: {"name": "SensingMethod", "type": TYPES.Short},
         40091: {"name": "XPTitle", "type": TYPES.Byte},
         40092: {"name": "XPComment", "type": TYPES.Byte},
         40093: {"name": "XPAuthor", "type": TYPES.Byte},
         40094: {"name": "XPKeywords", "type": TYPES.Byte},
         40095: {"name": "XPSubject", "type": TYPES.Byte},
         50341: {"name": "PrintImageMatching", "type": TYPES.Undefined},
-        50706: {"name": "DNGVersion", "type": TYPES.Byte},
-        50707: {"name": "DNGBackwardVersion", "type": TYPES.Byte},
-        50708: {"name": "UniqueCameraModel", "type": TYPES.Ascii},
-        50709: {"name": "LocalizedCameraModel", "type": TYPES.Byte},
-        50710: {"name": "CFAPlaneColor", "type": TYPES.Byte},
-        50711: {"name": "CFALayout", "type": TYPES.Short},
-        50712: {"name": "LinearizationTable", "type": TYPES.Short},
-        50713: {"name": "BlackLevelRepeatDim", "type": TYPES.Short},
-        50714: {"name": "BlackLevel", "type": TYPES.Rational},
-        50715: {"name": "BlackLevelDeltaH", "type": TYPES.SRational},
-        50716: {"name": "BlackLevelDeltaV", "type": TYPES.SRational},
-        50717: {"name": "WhiteLevel", "type": TYPES.Short},
-        50718: {"name": "DefaultScale", "type": TYPES.Rational},
-        50719: {"name": "DefaultCropOrigin", "type": TYPES.Short},
-        50720: {"name": "DefaultCropSize", "type": TYPES.Short},
-        50721: {"name": "ColorMatrix1", "type": TYPES.SRational},
-        50722: {"name": "ColorMatrix2", "type": TYPES.SRational},
-        50723: {"name": "CameraCalibration1", "type": TYPES.SRational},
-        50724: {"name": "CameraCalibration2", "type": TYPES.SRational},
-        50725: {"name": "ReductionMatrix1", "type": TYPES.SRational},
-        50726: {"name": "ReductionMatrix2", "type": TYPES.SRational},
-        50727: {"name": "AnalogBalance", "type": TYPES.Rational},
-        50728: {"name": "AsShotNeutral", "type": TYPES.Short},
-        50729: {"name": "AsShotWhiteXY", "type": TYPES.Rational},
-        50730: {"name": "BaselineExposure", "type": TYPES.SRational},
-        50731: {"name": "BaselineNoise", "type": TYPES.Rational},
-        50732: {"name": "BaselineSharpness", "type": TYPES.Rational},
-        50733: {"name": "BayerGreenSplit", "type": TYPES.Long},
-        50734: {"name": "LinearResponseLimit", "type": TYPES.Rational},
-        50735: {"name": "CameraSerialNumber", "type": TYPES.Ascii},
-        50736: {"name": "LensInfo", "type": TYPES.Rational},
-        50737: {"name": "ChromaBlurRadius", "type": TYPES.Rational},
-        50738: {"name": "AntiAliasStrength", "type": TYPES.Rational},
-        50739: {"name": "ShadowScale", "type": TYPES.SRational},
-        50740: {"name": "DNGPrivateData", "type": TYPES.Byte},
-        50741: {"name": "MakerNoteSafety", "type": TYPES.Short},
-        50778: {"name": "CalibrationIlluminant1", "type": TYPES.Short},
-        50779: {"name": "CalibrationIlluminant2", "type": TYPES.Short},
-        50780: {"name": "BestQualityScale", "type": TYPES.Rational},
-        50781: {"name": "RawDataUniqueID", "type": TYPES.Byte},
-        50827: {"name": "OriginalRawFileName", "type": TYPES.Byte},
-        50828: {"name": "OriginalRawFileData", "type": TYPES.Undefined},
-        50829: {"name": "ActiveArea", "type": TYPES.Short},
-        50830: {"name": "MaskedAreas", "type": TYPES.Short},
-        50831: {"name": "AsShotICCProfile", "type": TYPES.Undefined},
-        50832: {"name": "AsShotPreProfileMatrix", "type": TYPES.SRational},
-        50833: {"name": "CurrentICCProfile", "type": TYPES.Undefined},
-        50834: {"name": "CurrentPreProfileMatrix", "type": TYPES.SRational},
-        50879: {"name": "ColorimetricReference", "type": TYPES.Short},
-        50931: {"name": "CameraCalibrationSignature", "type": TYPES.Byte},
-        50932: {"name": "ProfileCalibrationSignature", "type": TYPES.Byte},
-        50934: {"name": "AsShotProfileName", "type": TYPES.Byte},
-        50935: {"name": "NoiseReductionApplied", "type": TYPES.Rational},
-        50936: {"name": "ProfileName", "type": TYPES.Byte},
-        50937: {"name": "ProfileHueSatMapDims", "type": TYPES.Long},
-        50938: {"name": "ProfileHueSatMapData1", "type": TYPES.Float},
-        50939: {"name": "ProfileHueSatMapData2", "type": TYPES.Float},
-        50940: {"name": "ProfileToneCurve", "type": TYPES.Float},
-        50941: {"name": "ProfileEmbedPolicy", "type": TYPES.Long},
-        50942: {"name": "ProfileCopyright", "type": TYPES.Byte},
-        50964: {"name": "ForwardMatrix1", "type": TYPES.SRational},
-        50965: {"name": "ForwardMatrix2", "type": TYPES.SRational},
-        50966: {"name": "PreviewApplicationName", "type": TYPES.Byte},
-        50967: {"name": "PreviewApplicationVersion", "type": TYPES.Byte},
-        50968: {"name": "PreviewSettingsName", "type": TYPES.Byte},
-        50969: {"name": "PreviewSettingsDigest", "type": TYPES.Byte},
-        50970: {"name": "PreviewColorSpace", "type": TYPES.Long},
-        50971: {"name": "PreviewDateTime", "type": TYPES.Ascii},
-        50972: {"name": "RawImageDigest", "type": TYPES.Undefined},
-        50973: {"name": "OriginalRawFileDigest", "type": TYPES.Undefined},
-        50974: {"name": "SubTileBlockSize", "type": TYPES.Long},
-        50975: {"name": "RowInterleaveFactor", "type": TYPES.Long},
-        50981: {"name": "ProfileLookTableDims", "type": TYPES.Long},
-        50982: {"name": "ProfileLookTableData", "type": TYPES.Float},
-        51008: {"name": "OpcodeList1", "type": TYPES.Undefined},
-        51009: {"name": "OpcodeList2", "type": TYPES.Undefined},
-        51022: {"name": "OpcodeList3", "type": TYPES.Undefined},
-        51041: {"name": "NoiseProfile", "type": TYPES.DFloat},
-        51105: {"name": "CameraLabel", "type": TYPES.Ascii},
-        51112: {"name": "RawToPreviewGain", "type": TYPES.DFloat},
         60606: {"name": "ZZZTestSlong1", "type": TYPES.SLong},
         60607: {"name": "ZZZTestSlong2", "type": TYPES.SLong},
         60608: {"name": "ZZZTestSByte", "type": TYPES.SByte},
@@ -353,6 +418,10 @@ TAGS = {
 }
 
 TAGS["Image"].update(TIFF_TAGS)
+TAGS["Image"].update(TIFFEP_TAGS)
+TAGS["Image"].update(TIFF_TECHNOTE_TAGS)
+TAGS["Image"].update(DNG_TAGS)
+TAGS["Image"].update(CINEMADNG_TAGS)
 TAGS["GlobalParameters"].update(TIFF_TAGS)
 
 TAGS["0th"] = TAGS["Image"]
@@ -537,6 +606,7 @@ class ImageIFD:
     ColorimetricReference = 50879
     CameraCalibrationSignature = 50931
     ProfileCalibrationSignature = 50932
+    ExtraCameraProfiles = 50933
     AsShotProfileName = 50934
     NoiseReductionApplied = 50935
     ProfileName = 50936
@@ -564,8 +634,50 @@ class ImageIFD:
     OpcodeList2 = 51009
     OpcodeList3 = 51022
     NoiseProfile = 51041
+    TimeCodes = 51043
+    FrameRate = 51044
+    TStop = 51058
+    ReelName = 51081
+    OriginalDefaultFinalSize = 51089
+    OriginalBestQualityFinalSize = 51090
+    OriginalDefaultCropSize = 51091
     CameraLabel = 51105
+    ProfileHueSatMapEncoding = 51107
+    ProfileLookTableEncoding = 51108
+    BaselineExposureOffset = 51109
+    DefaultBlackRender = 51110
+    NewRawImageDigest = 51111
     RawToPreviewGain = 51112
+    DefaultUserCrop = 51125
+    DepthFormat = 51177
+    DepthNear = 51178
+    DepthFar = 51179
+    DepthUnits = 51180
+    DepthMeasureType = 51181
+    EnhanceParams = 51182
+    ProfileGainTableMap = 52525
+    SemanticName = 52526
+    SemanticInstanceID = 52528
+    CalibrationIlluminant3 = 52529
+    CameraCalibration3 = 52530
+    ColorMatrix3 = 52531
+    ForwardMatrix3 = 52532
+    IlluminantData1 = 52533
+    IlluminantData2 = 52534
+    IlluminantData3 = 52535
+    MaskSubArea = 52536
+    ProfileHueSatMapData3 = 52537
+    ReductionMatrix3 = 52538
+    RGBTables = 52543
+    ProfileGainTableMap2 = 52544
+    ColumnInterleaveFactor = 52547
+    ImageSequenceInfo = 52548
+    ImageStats = 52550
+    ProfileDynamicRange = 52551
+    ProfileGroupName = 52552
+    JXLDistance = 52553
+    JXLEffort = 52554
+    JXLDecodeSpeed = 52555
     ZZZTestSlong1 = 60606
     ZZZTestSlong2 = 60607
     ZZZTestSByte = 60608

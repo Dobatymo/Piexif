@@ -11,6 +11,33 @@ from piexif._load import load, load_ifds_bytes
 class DumpValidationTests(unittest.TestCase):
     thumbnail = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00" b"\xff\xd9"
 
+    def test_new_dng_tags_roundtrip_by_number_and_name(self):
+        source = {
+            "0th": {
+                ImageIFD.ExtraCameraProfiles: (2, 3),
+                ImageIFD.ProfileHueSatMapEncoding: 1,
+                ImageIFD.NewRawImageDigest: tuple(range(16)),
+                ImageIFD.RawImageDigest: b"legacy digest bytes",
+                ImageIFD.JXLDistance: 0.25,
+                ImageIFD.JXLEffort: 7,
+                ImageIFD.ProfileGroupName: b"camera profile",
+            }
+        }
+        encoded = dump(source)
+        self.assertEqual(load(encoded)["0th"], source["0th"])
+        self.assertEqual(
+            load(encoded, key_is_name=True)["0th"],
+            {
+                "ExtraCameraProfiles": (2, 3),
+                "ProfileHueSatMapEncoding": 1,
+                "NewRawImageDigest": tuple(range(16)),
+                "RawImageDigest": b"legacy digest bytes",
+                "JXLDistance": 0.25,
+                "JXLEffort": 7,
+                "ProfileGroupName": b"camera profile",
+            },
+        )
+
     def test_empty_numeric_values_preserve_entry_layout(self):
         for tag, kind in (
             (700, 1),

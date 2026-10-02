@@ -1,3 +1,4 @@
+from ._config import config
 from ._dump import dump, dump_ifds
 from ._exceptions import InvalidImageDataError, UnsupportedImageFormatError
 from ._exif import GPSIFD, TAGS, TYPES, ExifIFD, ImageIFD, InteropIFD
@@ -43,4 +44,5 @@ __all__ = [
     "InvalidImageDataError",
     "UnsupportedImageFormatError",
     "VERSION",
+    "config",
 ]

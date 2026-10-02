@@ -32,11 +32,13 @@ def webp(chunks):
 
 class WebpExifChunkTests(unittest.TestCase):
     def setUp(self):
-        self.chunks = [
-            chunk(b"VP8X", b"\x00" * 10),
+        with open("tests/images/tool1.webp", "rb") as source:
+            self.chunks = [
+                value for value in split(source.read()) if value["fourcc"] != b"EXIF"
+            ]
+        self.chunks[1:1] = [
             chunk(b"EXIF", b"old"),
             chunk(b"EXIF", b"old2"),
-            chunk(b"VP8 ", b""),
         ]
 
     def test_loads_bare_and_prefixed_exif_without_riff_padding(self):
@@ -112,6 +114,64 @@ class WebpExifChunkTests(unittest.TestCase):
 
         self.assertIsNone(get_exif(result))
 
+    def test_missing_webp_image_header_is_rejected(self):
+        for chunks in ([], [chunk(b"JUNK", b"")], [chunk(b"EXIF", dump({})[6:])]):
+            for reader in (get_exif, piexif.load_bytes, piexif.load_ifds_bytes):
+                with self.assertRaises(ValueError):
+                    reader(webp(chunks))
+
+    def test_simple_webp_ignores_exif_chunks(self):
+        for image_chunk in (chunk(b"VP8 ", b"image"), chunk(b"VP8L", b"image")):
+            data = webp([image_chunk, chunk(b"EXIF", dump({})[6:])])
+            self.assertIsNone(get_exif(data))
+            self.assertEqual(piexif.load_bytes(data)["0th"], {})
+
+    def test_vp8x_exif_flag_must_match_exif_chunks(self):
+        exif = chunk(b"EXIF", dump({})[6:])
+        for chunks in (
+            [chunk(b"VP8X", b"\x00" + b"\x00" * 9), exif],
+            [chunk(b"VP8X", b"\x08" + b"\x00" * 9)],
+        ):
+            data = webp(chunks)
+            for reader in (get_exif, piexif.load_bytes, piexif.load_ifds_bytes):
+                with self.assertRaises(ValueError):
+                    reader(data)
+
+    def test_edits_preserve_trailing_empty_unknown_chunk(self):
+        empty = chunk(b"JUNK", b"")
+        original = webp(self.chunks + [empty])
+        exif = dump({})[6:]
+        inserted = insert(original, exif)
+        removed = remove(inserted)
+        self.assertEqual(get_exif(inserted), exif)
+        self.assertIsNone(get_exif(removed))
+        image_chunks = [value for value in self.chunks if value["fourcc"] == b"VP8 "]
+        for data in (original, inserted, removed):
+            chunks = split(data)
+            self.assertEqual(
+                [value for value in chunks if value["fourcc"] == b"JUNK"], [empty]
+            )
+            self.assertEqual(
+                [value for value in chunks if value["fourcc"] == b"VP8 "], image_chunks
+            )
+
+    def test_truncated_chunks_are_rejected(self):
+        data = (
+            b"RIFF"
+            + struct.pack("<L", 13)
+            + b"WEBP"
+            + b"JUNK"
+            + struct.pack("<L", 8)
+            + b"x"
+        )
+        for reader in (split, get_exif):
+            with self.assertRaises(ValueError):
+                reader(data)
+
+    def test_invalid_vp8_frame_is_rejected(self):
+        with self.assertRaises(ValueError):
+            set_vp8x([chunk(b"VP8 ", b"not a VP8 frame")])
+
 
 class WebpCanvasTests(unittest.TestCase):
     def setUp(self):
@@ -150,6 +210,27 @@ class WebpCanvasTests(unittest.TestCase):
     def test_insert_preserves_animation_alpha(self):
         result = insert(self.original, dump({})[6:])
         self.assertEqual(ord(split(result)[0]["data"][:1]) & 0x10, 0x10)
+
+    def test_xmp_chunk_survives_exif_edits(self):
+        packet = b'<x:xmpmeta xmlns:x="adobe:ns:meta/" />'
+        chunks = split(self.original)
+        xmp_chunk = chunk(b"XMP ", packet)
+        chunks.append(xmp_chunk)
+        source = webp(set_vp8x(chunks))
+
+        inserted = insert(source, dump({})[6:])
+        self.assertEqual(
+            [value for value in split(inserted) if value["fourcc"] == b"XMP "],
+            [xmp_chunk],
+        )
+        self.assertEqual(ord(split(inserted)[0]["data"][:1]) & 0x04, 0x04)
+
+        removed = remove(inserted)
+        self.assertEqual(
+            [value for value in split(removed) if value["fourcc"] == b"XMP "],
+            [xmp_chunk],
+        )
+        self.assertEqual(ord(split(removed)[0]["data"][:1]) & 0x04, 0x04)
 
     def test_remove_preserves_animation_alpha(self):
         for source in (self.original, insert(self.original, dump({})[6:])):

@@ -2,13 +2,15 @@ import struct
 
 
 def split(data):
-    if data[0:4] != b"RIFF" or data[8:12] != b"WEBP":
+    if len(data) < 12 or data[0:4] != b"RIFF" or data[8:12] != b"WEBP":
         raise ValueError("Not WebP")
 
     webp_length_bytes = data[4:8]
     webp_length = struct.unpack("<L", webp_length_bytes)[0]
     RIFF_HEADER_SIZE = 8
     file_size = RIFF_HEADER_SIZE + webp_length
+    if file_size > len(data):
+        raise ValueError("Invalid WebP file size")
 
     start = 12
     pointer = start
@@ -16,21 +18,25 @@ def split(data):
     LENGTH_BYTES_LENGTH = 4
 
     chunks = []
-    while pointer + CHUNK_FOURCC_LENGTH + LENGTH_BYTES_LENGTH < file_size:
+    while pointer + CHUNK_FOURCC_LENGTH + LENGTH_BYTES_LENGTH <= file_size:
         fourcc = data[pointer : pointer + CHUNK_FOURCC_LENGTH]
         pointer += CHUNK_FOURCC_LENGTH
         chunk_length_bytes = data[pointer : pointer + LENGTH_BYTES_LENGTH]
         chunk_length = struct.unpack("<L", chunk_length_bytes)[0]
         pointer += LENGTH_BYTES_LENGTH
 
+        chunk_end = pointer + chunk_length
+        padded_end = chunk_end + chunk_length % 2
+        if padded_end > file_size:
+            raise ValueError("Invalid WebP chunk length")
         chunk_data = data[pointer : pointer + chunk_length]
         chunks.append(
             {"fourcc": fourcc, "length_bytes": chunk_length_bytes, "data": chunk_data}
         )
 
-        padding = 1 if chunk_length % 2 else 0
-
-        pointer += chunk_length + padding
+        pointer = padded_end
+    if pointer != file_size:
+        raise ValueError("Invalid WebP chunk header")
     return chunks
 
 
@@ -61,7 +67,7 @@ def _get_size_from_vp8(chunk):
     BEGIN_CODE = b"\x9d\x01\x2a"
     begin_index = chunk["data"].find(BEGIN_CODE)
     if begin_index == -1:
-        ValueError("wrong VP8")
+        raise ValueError("wrong VP8")
     else:
         BEGIN_CODE_LENGTH = len(BEGIN_CODE)
         LENGTH_BYTES_LENGTH = 2
@@ -189,38 +195,26 @@ def get_file_header(chunks):
 
 
 def get_exif(data):
-    if data[0:4] != b"RIFF" or data[8:12] != b"WEBP":
-        raise ValueError("Not WebP")
+    chunks = split(data)
+    if not chunks:
+        raise ValueError("Invalid WebP image header")
 
-    if data[12:16] in (b"VP8 ", b"VP8L"):
-        return None  # Simple WebP has no extended metadata.
+    if chunks[0]["fourcc"] in (b"VP8 ", b"VP8L"):
+        return None  # Simple WebP has no EXIF metadata.
+    if chunks[0]["fourcc"] != b"VP8X" or len(chunks[0]["data"]) != 10:
+        raise ValueError("Invalid WebP image header")
 
-    if data[12:16] != b"VP8X":
-        raise ValueError("doesnot have exif")
+    exif_chunks = [chunk for chunk in chunks if chunk["fourcc"] == b"EXIF"]
+    has_exif_flag = bool(ord(chunks[0]["data"][:1]) & 0x08)
+    if has_exif_flag != bool(exif_chunks):
+        raise ValueError("WebP EXIF flag does not match EXIF chunks")
+    if not exif_chunks:
+        return None
 
-    webp_length_bytes = data[4:8]
-    webp_length = struct.unpack("<L", webp_length_bytes)[0]
-    RIFF_HEADER_SIZE = 8
-    file_size = RIFF_HEADER_SIZE + webp_length
-
-    start = 12
-    pointer = start
-    CHUNK_FOURCC_LENGTH = 4
-    LENGTH_BYTES_LENGTH = 4
-
-    while pointer < file_size:
-        fourcc = data[pointer : pointer + CHUNK_FOURCC_LENGTH]
-        pointer += CHUNK_FOURCC_LENGTH
-        chunk_length_bytes = data[pointer : pointer + LENGTH_BYTES_LENGTH]
-        chunk_length = struct.unpack("<L", chunk_length_bytes)[0]
-        pointer += LENGTH_BYTES_LENGTH
-        if fourcc == b"EXIF":
-            exif = data[pointer : pointer + chunk_length]
-            if exif.startswith(b"Exif\x00\x00"):
-                exif = exif[6:]
-            return exif
-        pointer += chunk_length + chunk_length % 2
-    return None  # if there isn't exif, return None.
+    exif = exif_chunks[0]["data"]
+    if exif.startswith(b"Exif\x00\x00"):
+        exif = exif[6:]
+    return exif
 
 
 def insert_exif_into_chunks(chunks, exif_bytes):
