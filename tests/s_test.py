@@ -5,7 +5,6 @@ import io
 import math
 import os
 import struct
-import time
 import unittest
 
 from PIL import Image
@@ -21,9 +20,6 @@ from piexif import (
     _webp,
     helper,
 )
-
-print("piexif version: {}".format(piexif.VERSION))
-
 
 INPUT_FILE1 = os.path.join("tests", "images", "01.jpg")
 INPUT_FILE2 = os.path.join("tests", "images", "02.jpg")
@@ -137,21 +133,19 @@ class ExifTests(unittest.TestCase):
         self.assertIn(ExifIFD.ExposureTime, actual)
         expected["Exif"][ExifIFD.ExposureTime] = (999, 1)
         with self.assertRaises(AssertionError):
-            self._compare_piexifDict_PILDict(expected, actual, p=False)
+            self._compare_piexifDict_PILDict(expected, actual)
 
     def test_load(self):
         files = glob.glob(os.path.join("tests", "images", "r_*.jpg"))
         for input_file in files:
             exif = piexif.load(input_file)
             e = load_exif_by_PIL(input_file)
-            print("********************\n" + input_file + "\n")
-            self._compare_piexifDict_PILDict(exif, e, p=False)
+            self._compare_piexifDict_PILDict(exif, e)
 
     def test_load_m(self):
         """'load' on memory."""
         exif = piexif.load(I1)
         e = load_exif_by_PIL(INPUT_FILE1)
-        print("********************\n\n" + INPUT_FILE1 + "\n")
         self._compare_piexifDict_PILDict(exif, e)
 
     def test_load_tif(self):
@@ -216,13 +210,18 @@ class ExifTests(unittest.TestCase):
         im.close()
         o.seek(0)
         exif = piexif.load(o.getvalue(), True)
-        print(exif)
+        self.assertEqual(exif["0th"]["Make"], ZEROTH_IFD[ImageIFD.Make])
+        self.assertEqual(exif["Exif"]["ExposureTime"], EXIF_IFD[ExifIFD.ExposureTime])
+        self.assertEqual(exif["GPS"]["GPSVersionID"], GPS_IFD[GPSIFD.GPSVersionID])
+        self.assertEqual(exif["Interop"]["InteroperabilityIndex"], b"R98")
+        self.assertEqual(exif["1st"]["Model"], FIRST_IFD[ImageIFD.Model])
+        self.assertTrue(exif["thumbnail"].startswith(b"\xff\xd8"))
 
     def test_load_unicode_filename(self):
         input_file = os.path.join(u"tests", u"images", u"r_sony.jpg")
         exif = piexif.load(input_file)
         e = load_exif_by_PIL(input_file)
-        self._compare_piexifDict_PILDict(exif, e, p=False)
+        self._compare_piexifDict_PILDict(exif, e)
 
     # dump ------
     def test_no_exif_dump(self):
@@ -236,10 +235,7 @@ class ExifTests(unittest.TestCase):
 
     def test_dump(self):
         exif_dict = {"0th": ZEROTH_IFD, "Exif": EXIF_IFD, "GPS": GPS_IFD}
-        t = time.time()
         exif_bytes = piexif.dump(exif_dict)
-        t_cost = time.time() - t
-        print("'dump': {}[sec]".format(t_cost))
         im = Image.new("RGB", (8, 8))
 
         o = io.BytesIO()
@@ -454,7 +450,6 @@ class ExifTests(unittest.TestCase):
     def test_roundtrip_files(self):
         files = glob.glob(os.path.join("tests", "images", "r_*.jpg"))
         for input_file in files:
-            print(input_file)
             exif = piexif.load(input_file)
             exif_bytes = piexif.dump(exif)
             o = io.BytesIO()
@@ -464,14 +459,9 @@ class ExifTests(unittest.TestCase):
             t = e.pop("thumbnail")
             thumbnail = exif.pop("thumbnail")
             if t is not None:
+                # Dump removes nonstandard APPn segments from JPEG thumbnails.
                 if not (b"\xe0" <= thumbnail[3:4] <= b"\xef"):
-                    self.assertEqual(t, thumbnail)
-                else:
-                    print(
-                        "Given JPEG doesn't follow exif thumbnail standard. "
-                        "APPn segments in thumbnail should be removed, "
-                        "whereas thumbnail JPEG has it. \n: " + input_file
-                    )
+                    self.assertEqual(t, thumbnail, input_file)
                 exif["1st"].pop(513)
                 e["1st"].pop(513)
                 exif["1st"].pop(514)
@@ -489,8 +479,11 @@ class ExifTests(unittest.TestCase):
                         exif["Exif"].pop(ExifIFD.InteroperabilityTag)
                         e["Exif"].pop(ExifIFD.InteroperabilityTag)
                 for key in exif[ifd]:
-                    self.assertEqual(exif[ifd][key], e[ifd][key])
-            print(" - pass")
+                    self.assertEqual(
+                        exif[ifd][key],
+                        e[ifd][key],
+                        "{}: {} tag {}".format(input_file, ifd, key),
+                    )
 
     # transplant ------
     def test_transplant(self):
@@ -619,21 +612,11 @@ class ExifTests(unittest.TestCase):
             piexif.insert(exif_bytes, I1, False)
 
     # ------
-    def test_print_exif(self):
-        print("\n**********************************************")
-        t = time.time()
+    def test_load_pen_metadata(self):
         exif = piexif.load(INPUT_FILE_PEN)
-        t_cost = time.time() - t
-        print("'load': {}[sec]".format(t_cost))
-        for ifd in ("0th", "Exif", "GPS", "Interop", "1st"):
-            print("\n{} IFD:".format(ifd))
-            d = exif[ifd]
-            for key in sorted(d):
-                try:
-                    print("  ", key, TAGS[ifd][key]["name"], d[key][:10])
-                except (KeyError, TypeError):
-                    print("  ", key, TAGS[ifd][key]["name"], d[key])
-        print("**********************************************")
+        self.assertEqual(exif["0th"][ImageIFD.Model], b"E-P3            ")
+        self.assertEqual(exif["Exif"][ExifIFD.ExposureTime], (1, 30))
+        self.assertTrue(exif["thumbnail"].startswith(b"\xff\xd8"))
 
     # test utility methods----------------------------------------------
 
@@ -680,7 +663,7 @@ class ExifTests(unittest.TestCase):
         else:
             self.assertEqual(v1, v2)
 
-    def _compare_piexifDict_PILDict(self, piexifDict, pilDict, p=True):
+    def _compare_piexifDict_PILDict(self, piexifDict, pilDict):
         zeroth_ifd = piexifDict["0th"]
         exif_ifd = piexifDict["Exif"]
         gps_ifd = piexifDict["GPS"]
@@ -691,37 +674,12 @@ class ExifTests(unittest.TestCase):
         for key in sorted(zeroth_ifd):
             if key in pilDict and key not in (ImageIFD.ExifTag, ImageIFD.GPSTag):
                 self._compare_value(zeroth_ifd[key], pilDict[key], "0th", key)
-                if p:
-                    try:
-                        print(
-                            TAGS["0th"][key]["name"],
-                            zeroth_ifd[key][:10],
-                            pilDict[key][:10],
-                        )
-                    except (KeyError, TypeError):
-                        print(TAGS["0th"][key]["name"], zeroth_ifd[key], pilDict[key])
         for key in sorted(exif_ifd):
             if key in pilDict and key != ExifIFD.InteroperabilityTag:
                 self._compare_value(exif_ifd[key], pilDict[key], "Exif", key)
-                if p:
-                    try:
-                        print(
-                            TAGS["Exif"][key]["name"],
-                            exif_ifd[key][:10],
-                            pilDict[key][:10],
-                        )
-                    except (KeyError, TypeError):
-                        print(TAGS["Exif"][key]["name"], exif_ifd[key], pilDict[key])
         for key in sorted(gps_ifd):
             if key in gps:
                 self._compare_value(gps_ifd[key], gps[key], "GPS", key)
-                if p:
-                    try:
-                        print(
-                            TAGS["GPS"][key]["name"], gps_ifd[key][:10], gps[key][:10]
-                        )
-                    except (KeyError, TypeError):
-                        print(TAGS["GPS"][key]["name"], gps_ifd[key], gps[key])
 
 
 class UTests(unittest.TestCase):
@@ -952,6 +910,15 @@ class HelperTests(unittest.TestCase):
 class WebpTests(unittest.TestCase):
     def setUp(self):
         try:
+            from PIL import WebPImagePlugin
+
+            # Older Pillow raises ImportError without WebP and has no support flag.
+            webp_supported = getattr(WebPImagePlugin, "SUPPORTED", True)
+        except ImportError:
+            webp_supported = False
+        if not webp_supported:
+            self.skipTest("Pillow was built without WebP support")
+        try:
             os.mkdir("tests/images/out")
         except OSError:
             pass
@@ -970,12 +937,6 @@ class WebpTests(unittest.TestCase):
         ]
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
-
             with open(IMAGE_DIR + filename, "rb") as f:
                 data = f.read()
 
@@ -985,7 +946,7 @@ class WebpTests(unittest.TestCase):
             new_webp_bytes = file_header + merged
             with open(OUT_DIR + "raw_" + filename, "wb") as f:
                 f.write(new_webp_bytes)
-            Image.open(OUT_DIR + "raw_" + filename)
+            Image.open(OUT_DIR + "raw_" + filename).close()
 
     def test_insert_exif(self):
         """Can PIL open WebP that is inserted exif?"""
@@ -1008,19 +969,13 @@ class WebpTests(unittest.TestCase):
         }
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
-
             with open(IMAGE_DIR + filename, "rb") as f:
                 data = f.read()
             exif_bytes = piexif.dump(exif_dict)
             exif_inserted = _webp.insert(data, exif_bytes)
             with open(OUT_DIR + "i_" + filename, "wb") as f:
                 f.write(exif_inserted)
-            Image.open(OUT_DIR + "i_" + filename)
+            Image.open(OUT_DIR + "i_" + filename).close()
 
     def test_remove_exif(self):
         """Can PIL open WebP that is removed exif?"""
@@ -1036,18 +991,12 @@ class WebpTests(unittest.TestCase):
         ]
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
-
             with open(IMAGE_DIR + filename, "rb") as f:
                 data = f.read()
             exif_removed = _webp.remove(data)
             with open(OUT_DIR + "r_" + filename, "wb") as f:
                 f.write(exif_removed)
-            Image.open(OUT_DIR + "r_" + filename)
+            Image.open(OUT_DIR + "r_" + filename).close()
 
     def test_get_exif(self):
         """Can we get exif from WebP?"""
@@ -1057,12 +1006,6 @@ class WebpTests(unittest.TestCase):
         ]
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
-
             with open(IMAGE_DIR + filename, "rb") as f:
                 data = f.read()
             exif_bytes = _webp.get_exif(data)
@@ -1076,12 +1019,11 @@ class WebpTests(unittest.TestCase):
         ]
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
-            print(piexif.load(IMAGE_DIR + filename))
+            exif = piexif.load(IMAGE_DIR + filename)
+            self.assertEqual(exif["0th"][ImageIFD.Make], b"SONY")
+            self.assertEqual(exif["0th"][ImageIFD.Model], b"ILCE-7RM2")
+            self.assertEqual(exif["Exif"][ExifIFD.ExposureTime], (1, 100))
+            self.assertIsNone(exif["thumbnail"])
 
     def test_remove(self):
         """Can PIL open WebP that is removed exif?"""
@@ -1097,13 +1039,8 @@ class WebpTests(unittest.TestCase):
         ]
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
             piexif.remove(IMAGE_DIR + filename, OUT_DIR + "rr_" + filename)
-            Image.open(OUT_DIR + "rr_" + filename)
+            Image.open(OUT_DIR + "rr_" + filename).close()
 
     def test_insert(self):
         """Can PIL open WebP that is inserted exif?"""
@@ -1127,13 +1064,8 @@ class WebpTests(unittest.TestCase):
         exif_bytes = piexif.dump(exif_dict)
 
         for filename in files:
-            try:
-                Image.open(IMAGE_DIR + filename)
-            except Exception:
-                print("Pillow can't read {}".format(filename))
-                continue
             piexif.insert(exif_bytes, IMAGE_DIR + filename, OUT_DIR + "ii_" + filename)
-            Image.open(OUT_DIR + "ii_" + filename)
+            Image.open(OUT_DIR + "ii_" + filename).close()
 
 
 def suite():
