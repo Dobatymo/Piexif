@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   format:
-    name: Black (Python 3.6)
+    name: Black and isort (Python 3.6)
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,9 @@ jobs:
             --volume "${{ github.workspace }}:/workspace" \
             --workdir /workspace \
             python:3.6.15 \
-            sh -c "python -m pip install --no-cache-dir pip==20.3.4 black==21.12b0 && python -m black --check --target-version py27 ."
+            sh -c "python -m pip install --no-cache-dir pip==20.3.4 black==21.12b0 isort==5.10.1 && \
+              python -m isort --check-only --diff --profile black --line-length 88 . && \
+              python -m black --check --target-version py27 ."
 
   lint:
     name: Flake8 (${{ matrix.python-image }})
