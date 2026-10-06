@@ -236,6 +236,44 @@ dump_ifds
    The result may exceed JPEG APP1 capacity and therefore may not be insertable
    into a JPEG. This is not a format-aware TIFF-to-JPEG conversion.
 
+UTF-8 and Exif version compatibility
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``dump()`` and ``dump_ifds()`` accept partial metadata, including an Exif
+directory without ``ExifVersion``. This preserves compatibility with existing
+callers and allows editing metadata from nonconforming files. The writers
+do not insert or upgrade ``ExifVersion`` automatically. Successful serialization
+does not certify Exif conformance: the `CIPA Exif specification
+<https://www.cipa.jp/std/documents/e/DC-X008-Translation-2019-E.pdf>`_ requires
+``ExifVersion`` (tag 36864), recorded as four bytes such as ``b"0300"``.
+
+For tags that allow both ASCII and UTF-8, such as ``Make`` and ``Software``,
+Unicode strings are written as UTF-8 when the selected Exif version is
+``b"0300"`` or newer. Bytes and bytearrays retain the ASCII storage type.
+An older or missing version uses the existing ASCII path, which encodes Unicode
+strings with Latin-1 for compatibility and rejects characters it cannot encode.
+Tags defined exclusively as UTF-8, such as ``DevelopmentTypeDescription``,
+always use UTF-8 regardless of the selected version.
+
+``dump()`` selects the version from its single ``Exif`` dictionary. For
+``dump_ifds()``, an image directory selects the version from its own linked
+Exif directory. If there is no such directory, it uses the first image's
+Exif version for encoding only. This fallback accommodates thumbnails and other
+image directories that share the primary image's Exif context; it does not
+create an Exif directory or declare a version for the image.
+An existing Exif directory takes precedence even if its version is missing:
+it does not borrow the root version and does not enable UTF-8 for dual-typed
+tags. For independent pages, supply an Exif directory with an explicit version
+to avoid relying on the fallback.
+
+Exif directories use their own version. Other auxiliary directories use their
+owner's encoding choice: GPS and GlobalParameters belong to their image,
+and Interop belongs to Exif. A shared non-Exif auxiliary directory allows
+UTF-8 if any owner enables it, so serialization does not depend on traversal
+order. UTF-8 values are written as type 129, terminated with a NUL included in
+the byte count; loading returns Unicode strings, while ASCII values remain
+bytes.
+
 Nested directory lists
 ~~~~~~~~~~~~~~~~~~~~~~
 

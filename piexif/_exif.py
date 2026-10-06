@@ -12,6 +12,7 @@ class TYPES:
     Float = 11
     DFloat = 12
     Ifd = 13
+    UTF8 = 129
 
 
 # TIFF 6.0
@@ -266,6 +267,105 @@ CINEMADNG_TAGS = {
     51105: {"name": "CameraLabel", "type": TYPES.Ascii},
 }
 
+# Exif 3.0 tag definitions and UTF-8 extensions to existing tags.
+EXIF3_TAGS = {
+    "Image": {
+        270: {
+            "name": "ImageDescription",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        271: {"name": "Make", "type": TYPES.Ascii, "types": (TYPES.Ascii, TYPES.UTF8)},
+        272: {"name": "Model", "type": TYPES.Ascii, "types": (TYPES.Ascii, TYPES.UTF8)},
+        305: {
+            "name": "Software",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        315: {
+            "name": "Artist",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        33432: {
+            "name": "Copyright",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+    },
+    "Exif": {
+        42032: {
+            "name": "CameraOwnerName",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42035: {
+            "name": "LensMake",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42036: {
+            "name": "LensModel",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42038: {
+            "name": "ImageTitle",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42039: {
+            "name": "Photographer",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42040: {
+            "name": "ImageEditor",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42041: {
+            "name": "CameraFirmware",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42042: {
+            "name": "RAWDevelopingSoftware",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42043: {
+            "name": "ImageEditingSoftware",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42044: {
+            "name": "MetadataEditingSoftware",
+            "type": TYPES.Ascii,
+            "types": (TYPES.Ascii, TYPES.UTF8),
+        },
+        42080: {"name": "CompositeImage", "type": TYPES.Short},
+        42081: {"name": "SourceImageNumberOfCompositeImage", "type": TYPES.Short},
+        42082: {
+            "name": "SourceExposureTimesOfCompositeImage",
+            "type": TYPES.Undefined,
+        },
+    },
+}
+
+# Exif 3.1 tag definitions.
+EXIF31_TAGS = {
+    "Exif": {
+        37511: {"name": "LearningOptOutIn", "type": TYPES.Undefined},
+        41997: {"name": "DevelopmentType", "type": TYPES.Short},
+        41998: {"name": "DevelopmentTypeDescription", "type": TYPES.UTF8},
+        41999: {"name": "DistortionCorrection", "type": TYPES.Short},
+        42000: {"name": "ChromaticAberrationCorrection", "type": TYPES.Short},
+        42001: {"name": "ShadingCorrection", "type": TYPES.Short},
+        42002: {"name": "NoiseReduction", "type": TYPES.Short},
+    },
+}
+
 
 TAGS = {
     "Image": {
@@ -423,6 +523,11 @@ TAGS["Image"].update(TIFF_TECHNOTE_TAGS)
 TAGS["Image"].update(DNG_TAGS)
 TAGS["Image"].update(CINEMADNG_TAGS)
 TAGS["GlobalParameters"].update(TIFF_TAGS)
+
+TAGS["Image"].update(EXIF3_TAGS["Image"])
+TAGS["GlobalParameters"].update(EXIF3_TAGS["Image"])
+TAGS["Exif"].update(EXIF3_TAGS["Exif"])
+TAGS["Exif"].update(EXIF31_TAGS["Exif"])
 
 TAGS["0th"] = TAGS["Image"]
 TAGS["1st"] = TAGS["Image"]
@@ -727,6 +832,7 @@ class ExifIFD:
     SubjectArea = 37396
     MakerNote = 37500
     UserComment = 37510
+    LearningOptOutIn = 37511
     SubSecTime = 37520
     SubSecTimeOriginal = 37521
     SubSecTimeDigitized = 37522
@@ -759,6 +865,12 @@ class ExifIFD:
     Sharpness = 41994
     DeviceSettingDescription = 41995
     SubjectDistanceRange = 41996
+    DevelopmentType = 41997
+    DevelopmentTypeDescription = 41998
+    DistortionCorrection = 41999
+    ChromaticAberrationCorrection = 42000
+    ShadingCorrection = 42001
+    NoiseReduction = 42002
     ImageUniqueID = 42016
     CameraOwnerName = 42032
     BodySerialNumber = 42033
@@ -766,6 +878,16 @@ class ExifIFD:
     LensMake = 42035
     LensModel = 42036
     LensSerialNumber = 42037
+    ImageTitle = 42038
+    Photographer = 42039
+    ImageEditor = 42040
+    CameraFirmware = 42041
+    RAWDevelopingSoftware = 42042
+    ImageEditingSoftware = 42043
+    MetadataEditingSoftware = 42044
+    CompositeImage = 42080
+    SourceImageNumberOfCompositeImage = 42081
+    SourceExposureTimesOfCompositeImage = 42082
     Gamma = 42240
 
 

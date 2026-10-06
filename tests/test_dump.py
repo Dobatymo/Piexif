@@ -5,11 +5,77 @@ import unittest
 from piexif._dump import dump, dump_ifds
 from piexif._exceptions import InvalidImageDataError
 from piexif._exif import GPSIFD, ExifIFD, ImageIFD, InteropIFD
-from piexif._load import load, load_ifds_bytes
+from piexif._load import load, load_ifds, load_ifds_bytes
 
 
 class DumpValidationTests(unittest.TestCase):
     thumbnail = b"\xff\xd8\xff\xda\x00\x08\x01\x01\x00\x00\x3f\x00" b"\xff\xd9"
+
+    def test_ascii_and_unicode_values_roundtrip_with_exif_3(self):
+        ascii_value = b"plain ASCII"
+        unicode_value = u"\u65e5\u672c"
+        exif_dict = {
+            "0th": {
+                ImageIFD.ImageDescription: ascii_value,
+                ImageIFD.Make: unicode_value,
+            },
+            "Exif": {ExifIFD.ExifVersion: b"0300"},
+        }
+
+        for _ in range(2):
+            exif_dict = load(dump(exif_dict))
+            self.assertEqual(
+                type(exif_dict["0th"][ImageIFD.ImageDescription]), type(ascii_value)
+            )
+            self.assertEqual(exif_dict["0th"][ImageIFD.ImageDescription], ascii_value)
+            self.assertEqual(type(exif_dict["0th"][ImageIFD.Make]), type(unicode_value))
+            self.assertEqual(exif_dict["0th"][ImageIFD.Make], unicode_value)
+
+    def test_unicode_values_require_exif_3(self):
+        exif_dict = {
+            "0th": {ImageIFD.ImageDescription: u"\u65e5\u672c"},
+            "Exif": {ExifIFD.ExifVersion: b"0232"},
+        }
+        with self.assertRaises(ValueError):
+            dump(exif_dict)
+
+    def test_unicode_values_roundtrip_through_dump_ifds(self):
+        unicode_value = u"\u65e5\u672c"
+        exif_dict = {
+            "0th": {ImageIFD.Make: unicode_value},
+            "Exif": {ExifIFD.ExifVersion: b"0300"},
+        }
+
+        ifds = load_ifds(dump(exif_dict))
+        self.assertEqual(load(dump_ifds(ifds))["0th"][ImageIFD.Make], unicode_value)
+
+    def test_auxiliary_text_uses_owning_image_exif_version(self):
+        unicode_value = u"\u65e5\u672c"
+        for versions in ((b"0232", b"0300"), (b"0300", b"0232")):
+            ifds = [
+                {
+                    "tags": {},
+                    "Exif": {"tags": {ExifIFD.ExifVersion: version}},
+                    "GlobalParameters": {
+                        "tags": {
+                            ImageIFD.Software: (
+                                unicode_value if version == b"0300" else u"plain"
+                            )
+                        }
+                    },
+                }
+                for version in versions
+            ]
+            before = copy.deepcopy(ifds)
+            result = load_ifds_bytes(dump_ifds(ifds))
+            self.assertEqual(ifds, before)
+            self.assertEqual(load_ifds_bytes(dump_ifds(result)), result)
+            for node, version in zip(result, versions):
+                expected = unicode_value if version == b"0300" else b"plain"
+                self.assertEqual(
+                    node["GlobalParameters"]["tags"][ImageIFD.Software], expected
+                )
+                self.assertEqual(node["Exif"]["tags"][ExifIFD.ExifVersion], version)
 
     def test_new_dng_tags_roundtrip_by_number_and_name(self):
         source = {

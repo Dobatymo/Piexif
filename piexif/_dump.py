@@ -1,7 +1,7 @@
 import copy
 import numbers
 import struct
-from typing import Any, Dict, List, Set, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
 
 from ._common import split_into_segments
 from ._exceptions import InvalidImageDataError
@@ -9,6 +9,14 @@ from ._exif import _IFD_POINTERS, TAGS, TYPES, ExifIFD, ImageIFD
 
 TIFF_HEADER_LENGTH = 8
 RationalPair = Union[Tuple[int, int], List[int]]
+TEXT_TYPE = type(u"")
+
+
+def _uses_utf8(exif_ifd):
+    version = exif_ifd.get(ExifIFD.ExifVersion)
+    return (
+        isinstance(version, (bytes, bytearray)) and version.rstrip(b"\x00") >= b"0300"
+    )
 
 
 def dump(exif_dict_original):
@@ -19,6 +27,9 @@ def dump(exif_dict_original):
     the advanced nested directory-list API. Caller input is unchanged.
     Thumbnail bytes are written only when a "1st" dictionary is supplied;
     absent/None thumbnail omits that directory.
+
+    Partial metadata is accepted; ExifVersion is not inserted or upgraded.
+    Unicode on ASCII/UTF-8 tags uses UTF-8 only with ExifVersion >= b"0300".
 
     Unknown/private pointers and external pixel data are not relocated or
     copied. Only supplied JPEG thumbnail payloads are copied and repointed.
@@ -77,19 +88,23 @@ def dump(exif_dict_original):
         first_ifd[ImageIFD.JPEGInterchangeFormat] = 1
         first_ifd[ImageIFD.JPEGInterchangeFormatLength] = 1
 
-    zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
+    utf8_enabled = _uses_utf8(exif_dict.get("Exif", {}))
+
+    zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0, utf8_enabled)
     zeroth_length = len(zeroth_set[0]) + 4 + len(zeroth_set[1])
     zeroth_length += zeroth_length % 2
 
     if exif_is:
-        exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
+        exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length, utf8_enabled)
         exif_length = len(exif_set[0]) + 4 + len(exif_set[1])
         exif_length += exif_length % 2
     else:
         exif_bytes = b""
         exif_length = 0
     if gps_is:
-        gps_set = _dict_to_bytes(gps_ifd, "GPS", zeroth_length + exif_length)
+        gps_set = _dict_to_bytes(
+            gps_ifd, "GPS", zeroth_length + exif_length, utf8_enabled
+        )
         gps_bytes = gps_set[0] + b"\x00" * 4 + gps_set[1]
         gps_bytes += b"\x00" * (len(gps_bytes) % 2)
         gps_length = len(gps_bytes)
@@ -98,7 +113,7 @@ def dump(exif_dict_original):
         gps_length = 0
     if interop_is:
         offset = zeroth_length + exif_length + gps_length
-        interop_set = _dict_to_bytes(interop_ifd, "Interop", offset)
+        interop_set = _dict_to_bytes(interop_ifd, "Interop", offset, utf8_enabled)
         interop_bytes = interop_set[0] + b"\x00" * 4 + interop_set[1]
         interop_bytes += b"\x00" * (len(interop_bytes) % 2)
         interop_length = len(interop_bytes)
@@ -108,7 +123,7 @@ def dump(exif_dict_original):
     if global_parameters_is:
         offset = zeroth_length + exif_length + gps_length + interop_length
         global_parameters_set = _dict_to_bytes(
-            global_parameters_ifd, "GlobalParameters", offset
+            global_parameters_ifd, "GlobalParameters", offset, utf8_enabled
         )
         global_parameters_bytes = (
             global_parameters_set[0] + b"\x00" * 4 + global_parameters_set[1]
@@ -126,7 +141,7 @@ def dump(exif_dict_original):
             + interop_length
             + global_parameters_length
         )
-        first_set = _dict_to_bytes(first_ifd, "1st", offset)
+        first_set = _dict_to_bytes(first_ifd, "1st", offset, utf8_enabled)
         thumbnail = _get_thumbnail(exif_dict["thumbnail"])
         thumbnail_max_size = 64000
         if len(thumbnail) > thumbnail_max_size:
@@ -141,7 +156,7 @@ def dump(exif_dict_original):
         exif_ifd[ExifIFD.InteroperabilityTag] = (
             TIFF_HEADER_LENGTH + zeroth_length + exif_length + gps_length
         )
-        exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length)
+        exif_set = _dict_to_bytes(exif_ifd, "Exif", zeroth_length, utf8_enabled)
     if global_parameters_is:
         zeroth_ifd[ImageIFD.GlobalParametersIFD] = (
             TIFF_HEADER_LENGTH
@@ -163,12 +178,14 @@ def dump(exif_dict_original):
         thumbnail_pointer = pointer_value + len(first_set[0]) + 4 + len(first_set[1])
         first_ifd[ImageIFD.JPEGInterchangeFormat] = thumbnail_pointer
         first_ifd[ImageIFD.JPEGInterchangeFormatLength] = len(thumbnail)
-        first_set = _dict_to_bytes(first_ifd, "1st", pointer_value - TIFF_HEADER_LENGTH)
+        first_set = _dict_to_bytes(
+            first_ifd, "1st", pointer_value - TIFF_HEADER_LENGTH, utf8_enabled
+        )
         first_bytes = first_set[0] + b"\x00" * 4 + first_set[1] + thumbnail
     else:
         first_ifd_pointer = b"\x00\x00\x00\x00"
 
-    zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0)
+    zeroth_set = _dict_to_bytes(zeroth_ifd, "0th", 0, utf8_enabled)
     zeroth_bytes = zeroth_set[0] + first_ifd_pointer + zeroth_set[1]
     zeroth_bytes += b"\x00" * (len(zeroth_bytes) % 2)
     if exif_is:
@@ -254,6 +271,13 @@ def dump_ifds(ifds):
     belongs inside Exif. Shared nodes are written once; conflicting chain
     successors, incompatible node types and cycles are rejected.
 
+    Partial metadata is accepted without inserting or upgrading ExifVersion.
+    For ASCII/UTF-8 tags, each image uses its own Exif version, or the root's
+    if it has no Exif node. An existing versionless Exif node disables UTF-8
+    selection for those tags. Non-Exif auxiliary nodes use their owner's
+    choice; shared nodes allow UTF-8 if any owner enables it. UTF-8-only tags
+    always use UTF-8. These are compatibility rules, not conformance checks.
+
     JPEG data stays on its directory and is copied unchanged, without APP
     removal or a thumbnail size limit. Missing/None jpeg_data clears 513/514
     but retains the directory. No implicit directories are created. Structural
@@ -269,6 +293,23 @@ def dump_ifds(ifds):
     :rtype: bytes
     """
     root, nodes = _collect_image_ifds(ifds)
+    root_exif = nodes[root]["links"].get("Exif")
+
+    utf8_ifds = set()  # type: Set[int]
+    for pointer, node in nodes.items():
+        if node["kind"] == "Exif":
+            enabled = _uses_utf8(node["tags"])
+        elif node["kind"] == "Image":
+            exif = node["links"].get("Exif", root_exif)
+            enabled = exif is not None and _uses_utf8(nodes[exif]["tags"])
+        else:
+            continue
+        if enabled:
+            utf8_ifds.add(pointer)
+            utf8_ifds.update(
+                target for name, target in node["links"].items() if name != "Exif"
+            )
+
     active = set()  # type: Set[int]
     visited, order = set(), []
     stack = [(root, False)]
@@ -323,7 +364,9 @@ def dump_ifds(ifds):
     for pointer in order:
         node = nodes[pointer]
         offsets[pointer] = offset
-        entries, values = _dict_to_bytes(node["tags"], node["kind"], offset - 8)
+        entries, values = _dict_to_bytes(
+            node["tags"], node["kind"], offset - 8, pointer in utf8_ifds
+        )
         if node["jpeg_data"] is not None:
             node["tags"][ImageIFD.JPEGInterchangeFormat] = (
                 offset + len(entries) + 4 + len(values)
@@ -340,7 +383,9 @@ def dump_ifds(ifds):
                 tags[tag] = offsets[node["links"][name]]
         if node["subifds"]:
             tags[ImageIFD.SubIFDs] = tuple(offsets[child] for child in node["subifds"])
-        entries, values = _dict_to_bytes(tags, node["kind"], current - 8)
+        entries, values = _dict_to_bytes(
+            tags, node["kind"], current - 8, pointer in utf8_ifds
+        )
         payload = node["jpeg_data"] or b""
         following = offsets[node["next"]] if node["next"] else 0
         block = entries + struct.pack(">L", following) + values + payload
@@ -411,7 +456,10 @@ def _rational_values(raw_value, signed):
 
 
 def _value_to_bytes(raw_value, value_type, offset):
-    if value_type not in (TYPES.Ascii, TYPES.Undefined) and len(raw_value) == 0:
+    if (
+        value_type not in (TYPES.Ascii, TYPES.UTF8, TYPES.Undefined)
+        and len(raw_value) == 0
+    ):
         return b"\x00" * 4, b"\x00" * 4, b""
     four_bytes_over = b""
     value_str = b""
@@ -452,6 +500,14 @@ def _value_to_bytes(raw_value, value_type, offset):
                 new_value = raw_value + b"\x00"
             except TypeError:
                 raise ValueError("Got invalid type to convert.")
+        length = len(new_value)
+        if length > 4:
+            value_str = struct.pack(">I", offset)
+            four_bytes_over = new_value
+        else:
+            value_str = new_value + b"\x00" * (4 - length)
+    elif value_type == TYPES.UTF8:
+        new_value = raw_value.encode("utf-8") + b"\x00"
         length = len(new_value)
         if length > 4:
             value_str = struct.pack(">I", offset)
@@ -517,7 +573,7 @@ def _value_to_bytes(raw_value, value_type, offset):
     return length_str, value_str, four_bytes_over
 
 
-def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
+def _dict_to_bytes(ifd_dict, ifd, ifd_offset, utf8_enabled=False):
     tag_count = len(ifd_dict)
     entry_header = struct.pack(">H", tag_count)
     entries_length = 2 + tag_count * 12 + 4
@@ -527,7 +583,27 @@ def _dict_to_bytes(ifd_dict, ifd, ifd_offset):
     for n, key in enumerate(sorted(ifd_dict)):
         raw_value = ifd_dict[key]
         key_str = struct.pack(">H", key)
-        value_type = TAGS[ifd][key]["type"]
+        tag_info = TAGS[ifd][key]
+        value_type = tag_info["type"]
+        supported_types = cast(Optional[Tuple[int, ...]], tag_info.get("types"))
+        if supported_types is not None:
+            if (
+                isinstance(raw_value, (bytes, bytearray))
+                and TYPES.Ascii in supported_types
+            ):
+                value_type = TYPES.Ascii
+            elif (
+                isinstance(raw_value, TEXT_TYPE)
+                and TYPES.UTF8 in supported_types
+                and utf8_enabled
+            ):
+                value_type = TYPES.UTF8
+            elif isinstance(raw_value, TEXT_TYPE) and TYPES.Ascii in supported_types:
+                value_type = TYPES.Ascii
+            else:
+                raise InvalidImageDataError(
+                    '"dump" got invalid exif value (wrong type or out of range).'
+                )
         if (
             key == ImageIFD.AsShotNeutral
             and isinstance(raw_value, (tuple, list))

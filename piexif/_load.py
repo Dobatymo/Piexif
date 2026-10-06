@@ -406,6 +406,7 @@ class _ExifReader(object):
         type_size = {
             TYPES.Byte: 1,
             TYPES.Ascii: 1,
+            TYPES.UTF8: 1,
             TYPES.Short: 2,
             TYPES.Long: 4,
             TYPES.Ifd: 4,
@@ -423,6 +424,8 @@ class _ExifReader(object):
                 "Exif might be wrong. Got incorrect value type to decode."
             )
         if length == 0:
+            if t == TYPES.UTF8:
+                return u""
             return b"" if t in (TYPES.Ascii, TYPES.Undefined) else ()
         value_size = length * type_size
         if value_size > 4:
@@ -440,7 +443,7 @@ class _ExifReader(object):
                 )
             else:
                 data = struct.unpack("B" * length, value[0:length])
-        elif t == TYPES.Ascii:  # ASCII
+        elif t in (TYPES.Ascii, TYPES.UTF8):  # ASCII or Exif UTF-8
             if length > 4:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]
                 data = self.tiftag[pointer : pointer + length]
@@ -449,6 +452,11 @@ class _ExifReader(object):
             # Some writers omit the terminator; never read beyond the count.
             if data.endswith(b"\x00"):
                 data = data[:-1]
+            if t == TYPES.UTF8:
+                try:
+                    data = data.decode("utf-8")
+                except UnicodeDecodeError:
+                    raise InvalidImageDataError("Exif UTF-8 value is not valid UTF-8.")
         elif t == TYPES.Short:  # SHORT
             if length > 2:
                 pointer = struct.unpack(self.endian_mark + "L", value)[0]

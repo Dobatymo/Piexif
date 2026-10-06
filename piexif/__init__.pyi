@@ -63,6 +63,7 @@ class _Types:
     Float: int
     DFloat: int
     Ifd: int
+    UTF8: int
 
 class _IFDConstants:
     def __getattr__(self, name: str) -> int: ...
